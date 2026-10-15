@@ -4,6 +4,7 @@
 // Demo mode (for development): `BlueBloom --demo` also uses mock data and doesn't touch Bluetooth, but stays in the menu bar and switches state every 4 seconds,
 // to see the layout of the real menu bar popover as its content changes (snapshot mode can't render the popover's own behavior).
 // With `--demo-window`: stays in the streaming state and also puts the panel in a regular window (titled Blue Bloom Demo), so the accessibility API can click menus and read checkmarks to verify interaction.
+// `--demo-appearance light|dark` fixes the demo window's appearance regardless of the system setting (used for the README screenshot).
 // Both modes write settings to a separate domain and never persist device records, so the release app is unaffected.
 import AppKit
 import BlueBloomEngine
@@ -133,7 +134,7 @@ enum Snapshot {
             BluetoothDevice(address: "aa-bb-cc-dd-ee-01", name: "Focal Bathys", isConnected: true, minorClass: 6,
                             battery: BatteryLevels(main: 100)),
             BluetoothDevice(address: "aa-bb-cc-dd-ee-02", name: "WH-1000XM4", isConnected: false, minorClass: 6),
-            BluetoothDevice(address: "b0-12-34-56-78-9b", name: "Alexander的AirPods Pro #2 - Find My", isConnected: false, minorClass: 1),
+            BluetoothDevice(address: "b0-12-34-56-78-9b", name: "Alexander’s AirPods Pro", isConnected: false, minorClass: 1),
         ]
         func remote(_ ids: [CodecID]) -> [RemoteCodec] {
             ids.map { RemoteCodec(codec: $0, name: CodecInfo.of($0).name, sampleRates: [44100, 48000], element: Data()) }
@@ -176,9 +177,15 @@ enum Snapshot {
             let window = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 348, height: 600), styleMask: [.titled, .closable],
                                   backing: .buffered, defer: false)
             window.title = "Blue Bloom Demo"
+            window.center()
             window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(rootView: MenuContentView().environment(model))
+            if let i = CommandLine.arguments.firstIndex(of: "--demo-appearance"), i + 1 < CommandLine.arguments.count {
+                window.appearance = NSAppearance(named: CommandLine.arguments[i + 1] == "dark" ? .darkAqua : .aqua)
+            }
             window.makeKeyAndOrderFront(nil)
+            // Like the real menu bar panel, start with nothing focused (otherwise the first device row shows a focus ring)
+            window.makeFirstResponder(nil)
             NSApp.activate(ignoringOtherApps: true)
             demoWindow = window
             return
