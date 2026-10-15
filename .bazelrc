@@ -2,6 +2,8 @@
 common --macos_minimum_os=14.2
 build --macos_cpus=arm64
 build --compilation_mode=opt
+# Source commit stamped into the app (tools/workspace-status.sh, App/BUILD.bazel build_info_plist)
+build --workspace_status_command=tools/workspace-status.sh
 
 # Local private configuration (not in the repository): e.g. build --define=private_codecs=1 to link the codec plugins in private/
 try-import %workspace%/user.bazelrc

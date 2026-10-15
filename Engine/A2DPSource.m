@@ -262,6 +262,24 @@ typedef void (^ReplyBlock)(uint8_t messageType, const uint8_t *payload, size_t l
     return self;
 }
 
+NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
+    NSMutableString *text = [NSMutableString stringWithFormat:@"class 0x%06X", (unsigned)device.classOfDevice];
+    IOBluetoothSDPServiceRecord *record = [device getServiceRecordForUUID:[IOBluetoothSDPUUID uuid16:kBluetoothSDPUUID16ServiceClassPnPInformation]];
+    if (!record) {
+        [text appendString:@", no Device ID record"];
+        return text;
+    }
+    // Device ID profile attributes: 0x0201 vendor ID, 0x0202 product ID, 0x0203 version, 0x0205 vendor ID source (1 Bluetooth SIG, 2 USB-IF)
+    NSNumber *(^value)(BluetoothSDPServiceAttributeID) = ^NSNumber *(BluetoothSDPServiceAttributeID attribute) {
+        return [[record getAttributeDataElement:attribute] getNumberValue];
+    };
+    NSNumber *source = value(0x0205);
+    NSString *sourceName = source.intValue == 1 ? @"Bluetooth SIG" : source.intValue == 2 ? @"USB-IF" : [NSString stringWithFormat:@"source %@", source ?: @"?"];
+    [text appendFormat:@", vendor 0x%04X (%@), product 0x%04X, version 0x%04X", value(0x0201).unsignedIntValue, sourceName,
+                       value(0x0202).unsignedIntValue, value(0x0203).unsignedIntValue];
+    return text;
+}
+
 - (NSUUID *)deviceIdentifier {
     return _uuid;
 }
@@ -276,6 +294,7 @@ typedef void (^ReplyBlock)(uint8_t messageType, const uint8_t *payload, size_t l
 - (void)start {
     _wasConnected = _device.isConnected;
     BBLog(@"Target: %@ [%@], paired=%d, currently connected=%d", _device.name, _device.addressString, _device.isPaired, _wasConnected);
+    BBLog(@"Headphones: %@", A2DPDeviceIdentity(_device));
     // Guard the default device first, then build the tap: the tap's aggregate device uses the default output at that moment
     // as its clock source, and that must not be the headphones' call device
     _audioGuard = [[HeadsetAudioGuard alloc] initWithAddress:_device.addressString];

@@ -1,0 +1,80 @@
+name: Bug report
+description: Something doesn't work, for example connecting, sound, volume or the app itself.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! The developer doesn't have most headphones, so the **diagnostics bundle is the only way to see what happened**. Reports without it usually can't be investigated.
+        You can write in English or Chinese (中文也可以).
+
+        **Before you file:**
+        1. Reproduce the problem if you can.
+        2. Right after it happens, open **Settings › About › Export Diagnostics…**. It saves `BlueBloom-Diagnostics-<date>.zip` to your Desktop with Blue Bloom's logs and the last two hours of the macOS Bluetooth log. Bluetooth addresses are masked; device names are included.
+        3. Attach the zip below (drag it into the text box).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Turn on the headphones
+        2. Turn on Blue Bloom
+        3. ...
+  - type: input
+    id: when
+    attributes:
+      label: When did it happen?
+      description: Date and approximate time, so it can be found in the logs.
+      placeholder: 2026-10-15 around 14:30
+    validations:
+      required: true
+  - type: input
+    id: headphones
+    attributes:
+      label: Headphones
+      description: Brand and model, and firmware version if you know it.
+      placeholder: Sony WH-1000XM4, firmware 2.6.0
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does it happen?
+      options:
+        - Every time
+        - Often
+        - Sometimes
+        - Happened once
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics summary
+      description: Click **Settings › About › Copy Diagnostics** and paste here. It has no device names or addresses.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: bundle
+    attributes:
+      label: Diagnostics bundle
+      description: Drag `BlueBloom-Diagnostics-<date>.zip` from your Desktop into this box.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I exported the diagnostics bundle right after the problem happened and attached it above.
+          required: true
+        - label: I'm using the latest Blue Bloom release.
+          required: true

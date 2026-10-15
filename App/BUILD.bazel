@@ -74,6 +74,19 @@ swift_library(
     ],
 )
 
+# BBSourceCommit in Info.plist: the commit the build came from (tools/workspace-status.sh). stamp = 1 reads
+# bazel-out/stable-status.txt; only this small plist and the bundle are rebuilt when the commit changes
+genrule(
+    name = "build_info_plist",
+    outs = ["BuildInfo.plist"],
+    cmd = " ".join([
+        "commit=$$(sed -n 's/^STABLE_BB_SOURCE_COMMIT //p' bazel-out/stable-status.txt);",
+        "printf '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<plist version=\"1.0\"><dict><key>BBSourceCommit</key><string>%s</string></dict></plist>\\n'",
+        "\"$${commit:-unknown}\" > $@",
+    ]),
+    stamp = 1,
+)
+
 # Menu bar app; the virtual device driver sits in Contents/Resources and the app installs it to /Library/Audio/Plug-Ins/HAL
 macos_application(
     name = "BlueBloom",
@@ -81,7 +94,10 @@ macos_application(
     # Icon Composer document (layered Liquid Glass icon); actool also renders the flat icon used before macOS 26
     app_icons = glob(["AppIcon.icon/**"]),
     bundle_id = "app.bluebloom",
-    infoplists = ["Info.plist"],
+    infoplists = [
+        "Info.plist",
+        ":build_info_plist",
+    ],
     minimum_os_version = "14.2",
     resources = glob(["Resources/**"]) + [":third_party_notices"],
     deps = [

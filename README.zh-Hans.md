@@ -47,7 +47,17 @@ Blue Bloom 是一款菜单栏 app，用耳机支持的最好编码把 Mac 的声
 
 ## 安装
 
-目前还没有签名的发行版，需要从源码构建。你需要 Xcode 26 或更高版本，以及 [Bazelisk](https://github.com/bazelbuild/bazelisk)（`brew install bazelisk`）。
+### 下载
+
+1. 从 [Releases](https://github.com/JBoomRadio/bluebloom/releases) 下载 `BlueBloom-<版本>.dmg`，打开后把 Blue Bloom 拖进「应用程序」。
+2. 打开 Blue Bloom。它还没有用 Apple 开发者 ID 签名，第一次打开会被 macOS 拦下：到**系统设置 › 隐私与安全性**里点**仍要打开**。
+3. 允许访问蓝牙，阅读首次说明，按提示安装 Blue Bloom 音频设备，需要输入一次管理员密码。
+
+由于还没有开发者 ID 签名，每次更新后 macOS 都会重新询问蓝牙权限。
+
+### 从源码构建
+
+你需要 Xcode 26 或更高版本，以及 [Bazelisk](https://github.com/bazelbuild/bazelisk)（`brew install bazelisk`）。
 
 ```sh
 git clone https://github.com/JBoomRadio/bluebloom.git
@@ -55,33 +65,36 @@ cd bluebloom
 tools/install-app.sh
 ```
 
-`install-app.sh` 会构建 app、安装到 `~/Applications` 并打开。第一次启动时：
-
-1. 允许访问蓝牙。
-2. 阅读首次说明。
-3. 按提示安装 Blue Bloom 音频设备，需要输入一次管理员密码。
+`install-app.sh` 会构建 app、安装到 `~/Applications` 并打开。
 
 ## 使用
 
 - 点菜单栏的 Blue Bloom 图标：打开或关闭、选择耳机，在推流卡片里切换编码或音质。
 - **设置**里有通用、编码、音频、设备、高级、关于几页。
-- 遇到问题时，**设置 › 关于 › 复制诊断信息**会复制一份不含设备地址的报告；日志在 `~/Library/Logs/BlueBloom.log`。
 - 想彻底移除，用**设置 › 高级 › 卸载 Blue Bloom…**：删除音频设备、登录项、设置和日志，再把 app 移到废纸篓。
 
-另有一个命令行工具，主要供开发使用：
+## 报告问题
 
-```sh
-bazel build //CLI:bluebloom
-bazel-bin/CLI/bluebloom list                 # 已配对的设备
-bazel-bin/CLI/bluebloom probe "<设备名>"      # 耳机声明的编码
-bazel-bin/CLI/bluebloom codectest            # 不用耳机，用每种编码编一段测试音
-```
+开发者手上没有大多数耳机，能不能修好全靠日志。
+
+1. 出问题后尽快打开**设置 › 关于 › 导出诊断信息…**，它会在桌面保存 `BlueBloom-Diagnostics-<日期>.zip`，里面有 Blue Bloom 的日志和最近两小时的 macOS 蓝牙日志。蓝牙地址已打码，设备名称会保留。
+2. 用 **Bug report** 表单[提交 issue](https://github.com/JBoomRadio/bluebloom/issues/new/choose)，附上这个 zip；表单里还要贴上**复制诊断信息**得到的摘要。
+
+非常欢迎报告还没测过的耳机：**Headphones report** 表单用来收集 Blue Bloom 在你的耳机上的表现，好坏都可以。可以用中文写。
 
 ## 开发
 
 ```sh
 bazel build //App:BlueBloom //CLI:bluebloom
 bazel run //tools/codectest:sbc_roundtrip    # 另有 aac_roundtrip、ldac_roundtrip
+```
+
+命令行工具 `bluebloom` 主要供开发使用：
+
+```sh
+bazel-bin/CLI/bluebloom list                 # 已配对的设备
+bazel-bin/CLI/bluebloom probe "<设备名>"      # 耳机声明的编码
+bazel-bin/CLI/bluebloom codectest            # 不用耳机，用每种编码编一段测试音
 ```
 
 界面文字用 String Catalog 做本地化。改了界面文字后运行 `zsh tools/i18n/update-strings.sh`，把翻译写进 `tools/i18n/translations/<语言>.json`，再运行 `python3 tools/i18n/apply-translations.py`。

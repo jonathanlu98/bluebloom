@@ -58,7 +58,15 @@ static size_t AvctpMessageLength(const uint8_t *bytes, size_t available) {
     uint8_t _nextLabel;
     NSMutableDictionary<NSNumber *, VendorReply> *_pending;
     int _statusNotifyLabel;  // label the headphones used to subscribe to playback status, -1 if not subscribed
+    BOOL _capabilitiesAnswered;
+    BOOL _closed;
 }
+
+// The capability query is resent when the headphones don't answer it: observed 2026-10-15 09:45:30 (Focal Bathys),
+// the channel opened while the headphones were busy (their A2DP capability answer took 2.5 s) and the first query was
+// never answered, so volume sync never started. AVRCP expects a response within 1 s
+static const double kCapabilityRetrySeconds = 1.5;
+static const int kCapabilityAttempts = 3;
 
 - (instancetype)initWithSocket:(L2CAPSocket *)socket {
     if ((self = [super init])) {
@@ -244,8 +252,26 @@ static NSData *VendorFrame(uint8_t ctype, uint8_t pdu, const uint8_t *params, si
 #pragma mark As controller (CT): absolute volume
 
 - (void)start {
+    [self queryCapabilities:1];
+}
+
+- (void)queryCapabilities:(int)attempt {
     uint8_t capability = kCapabilityEventsSupported;
+    uint8_t label = _nextLabel;
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kCapabilityRetrySeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        typeof(self) strongSelf = weakSelf;
+        if (!strongSelf || strongSelf->_closed || strongSelf->_capabilitiesAnswered) return;
+        [strongSelf->_pending removeObjectForKey:@(label)];
+        if (attempt >= kCapabilityAttempts) {
+            [strongSelf log:[NSString stringWithFormat:@"AVRCP: the headphones didn't answer the capability query %d times, giving up (no volume sync)", attempt]];
+            return;
+        }
+        [strongSelf log:[NSString stringWithFormat:@"AVRCP: no answer to the capability query within %.1f s, asking again (attempt %d)", kCapabilityRetrySeconds, attempt + 1]];
+        [strongSelf queryCapabilities:attempt + 1];
+    });
     [self sendVendor:kCtypeStatus pdu:kPduGetCapabilities params:&capability length:1 reply:^(uint8_t ctype, const uint8_t *params, size_t length) {
+        self->_capabilitiesAnswered = YES;
         if (ctype != kCtypeStable || length < 2 || params[0] != kCapabilityEventsSupported) {
             [self log:[NSString stringWithFormat:@"AVRCP: querying headphones capabilities failed (response 0x%X)", ctype]];
             return;
@@ -279,6 +305,7 @@ static NSData *VendorFrame(uint8_t ctype, uint8_t pdu, const uint8_t *params, si
 }
 
 - (void)close {
+    _closed = YES;
     _socket.closedHandler = nil;
     [_socket close];
 }

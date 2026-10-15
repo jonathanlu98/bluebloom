@@ -448,9 +448,11 @@ struct AboutPane: View {
     @Environment(AppModel.self) private var model
     @State private var showingNotices = false
     @State private var copied = false
+    @State private var exporting = false
+    @State private var exportError: String?
 
-    // Public repository URL: fill it in here once decided, and the About pane shows the project link
-    static let projectURL: URL? = nil
+    // Public repository; the About pane links to it as the project page (issues, releases)
+    static let projectURL: URL? = URL(string: "https://github.com/JBoomRadio/bluebloom")
     // Width of the body text (intro, acknowledgements, footer notices), a bit narrower than the window and centered
     static let textWidth: CGFloat = 460
 
@@ -481,7 +483,13 @@ struct AboutPane: View {
             HStack(spacing: 10) {
                 Button("Third-Party Notices…") { showingNotices = true }
                 Button("Welcome Notes…") { model.openWelcome() }
+            }
+            HStack(spacing: 10) {
                 Button(copied ? "Copied" : "Copy Diagnostics") { copyDiagnostics() }
+                    .help("Copies a summary for a bug report: versions, settings and what your headphones support, without device names or addresses.")
+                Button(exporting ? "Exporting…" : "Export Diagnostics…") { exportDiagnostics() }
+                    .disabled(exporting || Snapshot.isActive)
+                    .help("Saves a zip to your Desktop with Blue Bloom's logs and the recent Bluetooth system log, to attach to a bug report. Bluetooth addresses are masked; device names are included.")
             }
             VStack(spacing: 6) {
                 HStack(spacing: 6) {
@@ -503,6 +511,10 @@ struct AboutPane: View {
         .padding(.horizontal, 20)
         .frame(maxWidth: .infinity)
         .sheet(isPresented: $showingNotices) { NoticesSheet() }
+        .alert(Text("Couldn't export diagnostics"), isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
+        } message: {
+            Text(verbatim: exportError ?? "")
+        }
     }
 
     // Acknowledgements list: the Settings window grows to fit its content, so with many codecs (plugins) it would overflow small screens; beyond maxCreditRows rows it becomes fixed-height and scrollable
@@ -522,6 +534,18 @@ struct AboutPane: View {
     }
 
     static let maxCreditRows = 6
+
+    // Zip for bug reports, see Diagnostics.export; shown in Finder when done
+    private func exportDiagnostics() {
+        exporting = true
+        Diagnostics.export(model) { result in
+            exporting = false
+            switch result {
+            case .success(let url): NSWorkspace.shared.activateFileViewerSelecting([url])
+            case .failure(let error): exportError = error.message
+            }
+        }
+    }
 
     // Attached to bug reports (no personal data such as device addresses), see AppModel diagnostics
     private func copyDiagnostics() {

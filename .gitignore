@@ -6,3 +6,5 @@ __pycache__/
 .DS_Store
 # Local agent instructions, not part of the repository
 /CLAUDE.md
+# Release builds and packages (tools/release.sh)
+/dist/

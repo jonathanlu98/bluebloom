@@ -45,7 +45,17 @@ Blue Bloom is a menu bar app that streams your Mac's audio to Bluetooth headphon
 
 ## Install
 
-There is no signed release yet, so build it from source. You need Xcode 26 or later and [Bazelisk](https://github.com/bazelbuild/bazelisk) (`brew install bazelisk`).
+### Download
+
+1. Download `BlueBloom-<version>.dmg` from [Releases](https://github.com/JBoomRadio/bluebloom/releases), open it and drag Blue Bloom to Applications.
+2. Open Blue Bloom. It isn't signed with an Apple Developer ID yet, so macOS blocks it the first time: go to **System Settings › Privacy & Security** and click **Open Anyway**.
+3. Allow Bluetooth access, read the first-run notice, and install the Blue Bloom audio device when asked. This needs an administrator password once.
+
+After each update macOS asks for Bluetooth access again, because the app isn't signed with a Developer ID yet.
+
+### Build from source
+
+You need Xcode 26 or later and [Bazelisk](https://github.com/bazelbuild/bazelisk) (`brew install bazelisk`).
 
 ```sh
 git clone https://github.com/JBoomRadio/bluebloom.git
@@ -53,33 +63,36 @@ cd bluebloom
 tools/install-app.sh
 ```
 
-`install-app.sh` builds the app, installs it to `~/Applications` and opens it. On the first launch:
-
-1. Allow Bluetooth access.
-2. Read the first-run notice.
-3. Install the Blue Bloom audio device when asked. This needs an administrator password once.
+`install-app.sh` builds the app, installs it to `~/Applications` and opens it.
 
 ## Usage
 
 - Click the Blue Bloom icon in the menu bar to turn it on or off, pick headphones, and change the codec or quality from the streaming card.
 - **Settings** has General, Codecs, Audio, Devices, Advanced and About.
-- If something goes wrong, **Settings › About › Copy Diagnostics** copies a report without device addresses. The log is at `~/Library/Logs/BlueBloom.log`.
 - To remove everything, use **Settings › Advanced › Uninstall Blue Bloom…**. It removes the audio device, the login item, settings and log, then moves the app to the Trash.
 
-There is also a command-line tool, mainly for development:
+## Reporting problems
 
-```sh
-bazel build //CLI:bluebloom
-bazel-bin/CLI/bluebloom list                 # paired devices
-bazel-bin/CLI/bluebloom probe "<name>"       # codecs the headphones declare
-bazel-bin/CLI/bluebloom codectest            # encode a test tone with every codec, no headphones needed
-```
+The developer doesn't have most headphones, so logs are what make a problem fixable.
+
+1. Right after the problem happens, open **Settings › About › Export Diagnostics…**. It saves `BlueBloom-Diagnostics-<date>.zip` to your Desktop with Blue Bloom's logs and the last two hours of the macOS Bluetooth log. Bluetooth addresses are masked; device names are included.
+2. [Open an issue](https://github.com/JBoomRadio/bluebloom/issues/new/choose) with the **Bug report** form and attach the zip. The form also asks for the summary from **Copy Diagnostics**.
+
+Headphones that haven't been tested yet are very welcome: the **Headphones report** form collects how Blue Bloom works with yours, good or bad. You can write in English or Chinese.
 
 ## Development
 
 ```sh
 bazel build //App:BlueBloom //CLI:bluebloom
 bazel run //tools/codectest:sbc_roundtrip    # also aac_roundtrip, ldac_roundtrip
+```
+
+The command-line tool `bluebloom` is mainly for development:
+
+```sh
+bazel-bin/CLI/bluebloom list                 # paired devices
+bazel-bin/CLI/bluebloom probe "<name>"       # codecs the headphones declare
+bazel-bin/CLI/bluebloom codectest            # encode a test tone with every codec, no headphones needed
 ```
 
 UI text is localized with String Catalogs. After changing it, run `zsh tools/i18n/update-strings.sh`, add translations to `tools/i18n/translations/<language>.json`, then run `python3 tools/i18n/apply-translations.py`.

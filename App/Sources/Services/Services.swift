@@ -9,13 +9,19 @@ import ServiceManagement
 
 enum LogFile {
     static let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/BlueBloom.log")
-    // Cleared at launch when larger than this, so it doesn't grow without bound
+    // The previous log, kept when the current one is rotated, so a bug report still has the history before the last rotation
+    static let previousURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/BlueBloom.1.log")
+    // Rotated at launch when larger than this, so the logs don't grow without bound
     private static let maxBytes: UInt64 = 5 * 1024 * 1024
 
     static func start() {
         let manager = FileManager.default
         let size = (try? manager.attributesOfItem(atPath: url.path)[.size] as? UInt64) ?? nil
-        if size == nil || size! > maxBytes { manager.createFile(atPath: url.path, contents: nil) }
+        if let size, size > maxBytes {
+            try? manager.removeItem(at: previousURL)
+            try? manager.moveItem(at: url, to: previousURL)
+        }
+        if !manager.fileExists(atPath: url.path) { manager.createFile(atPath: url.path, contents: nil) }
         guard let handle = try? FileHandle(forWritingTo: url) else { return }
         handle.seekToEndOfFile()
         let queue = DispatchQueue(label: "bluebloom.log")

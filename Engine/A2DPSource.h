@@ -47,6 +47,11 @@ enum {
 // UID of the virtual device, matches kDeviceUID in Driver/BlueBloomDevice.c
 extern NSString *const VirtualDeviceUID;
 
+// What the headphones say about themselves, for logs and diagnostics: Class of Device and the SDP Device ID record
+// (vendor ID and its source, product ID, version), e.g. "class 0x240404, vendor 0x000A (Bluetooth SIG), product 0xFFFF, version 0xFFFF".
+// Read from macOS's SDP cache, so it also works while the headphones are not connected (if they were connected before).
+NSString *A2DPDeviceIdentity(IOBluetoothDevice *device);
+
 @interface A2DPSource : NSObject
 - (instancetype)initWithDevice:(IOBluetoothDevice *)device mode:(SourceMode)mode rate:(double)rate file:(nullable NSString *)file
                        seconds:(double)seconds systemAudio:(BOOL)systemAudio;

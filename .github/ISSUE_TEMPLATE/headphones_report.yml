@@ -1,0 +1,52 @@
+name: Headphones report
+description: Tell how Blue Bloom works with your headphones, whether it works well or not. This helps support headphones the developer doesn't have.
+labels: ["headphones"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reports about headphones that haven't been tested are very welcome. Please connect them with Blue Bloom first, play some music for a minute, then export the diagnostics (**Settings › About › Export Diagnostics…**) and attach the zip.
+        You can write in English or Chinese (中文也可以).
+  - type: input
+    id: headphones
+    attributes:
+      label: Headphones
+      description: Brand and model, and firmware version if you know it.
+      placeholder: Sennheiser Momentum 4, firmware 2.14.0
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: How well does it work?
+      options:
+        - Works well
+        - Works, with problems
+        - Doesn't connect or doesn't play
+    validations:
+      required: true
+  - type: input
+    id: codec
+    attributes:
+      label: Codec and quality shown while streaming
+      description: From the streaming card in the menu, for example "LDAC 96 kHz · 24-bit · Adaptive".
+  - type: textarea
+    id: notes
+    attributes:
+      label: What did you notice?
+      description: Connection time, dropouts, volume, buttons, battery level, microphone, anything else.
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics summary
+      description: Click **Settings › About › Copy Diagnostics** and paste here.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: bundle
+    attributes:
+      label: Diagnostics bundle
+      description: Drag `BlueBloom-Diagnostics-<date>.zip` from your Desktop into this box.
+    validations:
+      required: true

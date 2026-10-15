@@ -49,35 +49,21 @@ final class AppModel {
 
     static var appVersion: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?" }
     static var appBuild: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?" }
+    // Commit the build came from (BBSourceCommit, stamped by Bazel; "-dirty" for uncommitted changes)
+    static var sourceCommit: String { Bundle.main.infoDictionary?["BBSourceCommit"] as? String ?? "unknown" }
+    // "0.1.0 (3, c454205013)": version, build number and source commit, as written to the log and diagnostics
+    static var versionDescription: String { "\(appVersion) (\(appBuild), \(sourceCommit))" }
 
-    // "Copy Diagnostics" on the About pane: attached to bug reports to tell which build, which system and which codecs are compiled in; contains no device names or addresses
-    var diagnostics: String {
-        let driver: String
-        switch driverState {
-        case .current: driver = "installed (\(DriverManager.version(at: DriverManager.installedPath) ?? "?"))"
-        case .outdated: driver = "outdated (\(DriverManager.version(at: DriverManager.installedPath) ?? "?"), app has \(DriverManager.version(at: DriverManager.bundledPath) ?? "?"))"
-        case .missing: driver = "not installed"
-        }
-        var lines = [
-            "Blue Bloom \(Self.appVersion) (\(Self.appBuild))",
-            "macOS \(Self.osVersion) (\(Self.osBuild))\(Compatibility.isTested ? "" : ", untested")",
-            "Codecs: \(A2DPCodec.allCodecs().map(\.identifier.rawValue).joined(separator: ", "))",
-            "Audio device: \(driver)",
-            "Status: \(Self.statusName(status))",
-        ]
-        if let configuration {
-            lines.append("Stream: \(configuration.codec.rawValue), \(Int(configuration.sampleRate)) Hz, \(Int(configuration.nominalKbps)) kbps")
-        }
-        return lines.joined(separator: "\n")
-    }
+    // "Copy Diagnostics" on the About pane, see Diagnostics.summary
+    var diagnostics: String { Diagnostics.summary(self) }
 
     // Diagnostics use a fixed English format (operatingSystemVersionString is localized)
-    private static var osVersion: String {
+    static var osVersion: String {
         let version = ProcessInfo.processInfo.operatingSystemVersion
         return "\(version.majorVersion).\(version.minorVersion)" + (version.patchVersion > 0 ? ".\(version.patchVersion)" : "")
     }
 
-    private static var osBuild: String {
+    static var osBuild: String {
         var size = 0
         guard sysctlbyname("kern.osversion", nil, &size, nil, 0) == 0, size > 0 else { return "?" }
         var buffer = [CChar](repeating: 0, count: size)
@@ -85,7 +71,16 @@ final class AppModel {
         return String(cString: buffer)
     }
 
-    private static func statusName(_ status: LinkStatus) -> String {
+    // Hardware model identifier such as "Mac16,8"
+    static var macModel: String {
+        var size = 0
+        guard sysctlbyname("hw.model", nil, &size, nil, 0) == 0, size > 0 else { return "?" }
+        var buffer = [CChar](repeating: 0, count: size)
+        guard sysctlbyname("hw.model", &buffer, &size, nil, 0) == 0 else { return "?" }
+        return String(cString: buffer)
+    }
+
+    static func statusName(_ status: LinkStatus) -> String {
         switch status {
         case .connecting: return "connecting"
         case .waitingHeadset: return "waiting for headphones"
@@ -131,7 +126,7 @@ final class AppModel {
     init() {
         if Snapshot.isActive { return }
         LogFile.start()
-        BBLogMessage("Blue Bloom \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "") started")
+        BBLogMessage("Blue Bloom \(Self.versionDescription) started on macOS \(Self.osVersion) (\(Self.osBuild)), \(Self.macModel)")
         refreshSystemState()
         applySampleRateMode()
         ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -470,6 +465,7 @@ final class AppModel {
             LoginItem.set(false)
             AwdlGuard.update(suppress: false)
             try? FileManager.default.removeItem(at: LogFile.url)
+            try? FileManager.default.removeItem(at: LogFile.previousURL)
             // The callback isn't guaranteed to run on the main thread
             NSWorkspace.shared.recycle([Bundle.main.bundleURL]) { _, error in
                 DispatchQueue.main.async {
