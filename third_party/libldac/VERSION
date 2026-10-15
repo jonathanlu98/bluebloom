@@ -1,0 +1,4 @@
+libldac eeee1a3f5f8df1282e3a6d297085885fd886737b 2025-01-10
+https://android.googlesource.com/platform/external/libldac/+archive/eeee1a3f5f8df1282e3a6d297085885fd886737b.tar.gz
+Taken 2026-10-13 from refs/heads/main (i.e. the commit above); only inc/, src/, abr/, LICENSE and NOTICE were copied, unmodified. Library version ldacBT_get_version() = 2.0.2.
+ldac_a2dp.h and ldac_a2dp.c are our own A2DP wrapper and not part of upstream.

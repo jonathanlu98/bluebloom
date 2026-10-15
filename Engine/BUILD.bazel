@@ -1,0 +1,30 @@
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
+
+# The aptX session with the headphones: direct private XPC to bluetoothd, AVDTP/HFP, aptX encoding and streaming, capture (virtual device or process tap)
+objc_library(
+    name = "Engine",
+    module_name = "BlueBloomEngine",
+    srcs = glob(["*.m"]),
+    hdrs = glob(["*.h"]),
+    includes = ["."],
+    linkopts = [
+        "-framework", "Foundation",
+        "-framework", "IOBluetooth",
+        "-framework", "AVFoundation",
+        "-framework", "CoreAudio",
+        "-framework", "AudioToolbox",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//Driver:protocol",
+        "//third_party/libldac:ldac",
+        "//third_party/sbc",
+        "//third_party/libfreeaptx:freeaptx",
+    ],
+)
+
+# Build the AAC encoder on its own for the round-trip test (tools/codectest:aac_roundtrip)
+exports_files([
+    "AACEncoder.h",
+    "AACEncoder.m",
+])

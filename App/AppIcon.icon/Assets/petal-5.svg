@@ -1,0 +1,2 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="-336" x2="0" y2="0"><stop offset="0" stop-color="#3C7BFF"/><stop offset="1" stop-color="#8FE3FF"/></linearGradient></defs>
+<g transform="scale(1.24272) translate(-100,-100)"><g transform="translate(512,512) rotate(288) scale(1.12)"><path d="M 0 0 C 120 -40 150 -200 70 -300 C 40 -338 -40 -338 -70 -300 C -150 -200 -120 -40 0 0 Z" fill="url(#g)"/></g></g></svg>

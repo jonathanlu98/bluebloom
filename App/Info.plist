@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh-Hans</string>
+		<string>zh-Hant</string>
+		<string>ja</string>
+		<string>ko</string>
+		<string>de</string>
+		<string>fr</string>
+		<string>es</string>
+	</array>
+	<key>CFBundleDisplayName</key>
+	<string>Blue Bloom</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Blue Bloom</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 Blue Bloom contributors</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.music</string>
+	<!-- Shown only in the menu bar, not in the Dock -->
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Blue Bloom connects to your Bluetooth headphones to stream audio with high-quality codecs such as LDAC and aptX.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Blue Bloom reads the sample rate of the current Apple Music track so it can match it, and asks for administrator permission to install its virtual audio device.</string>
+</dict>
+</plist>

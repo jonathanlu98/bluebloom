@@ -1,0 +1,43 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+# License and version notes: third_party_notices in App/BUILD.bazel uses these to generate the ThirdPartyNotices.txt shipped with the app
+exports_files([
+    "LICENSE",
+    "NOTICE",
+    "VERSION",
+])
+
+# libldac (Sony, Apache-2.0, see LICENSE, NOTICE, VERSION): LDAC encoder + ABR, plus our A2DP wrapper ldac_a2dp.
+# Follows AOSP Android.bp: libldacBT_enc only compiles src/ldaclib.c and src/ldacBT.c, and the other src/*.c are #included
+# by them (unity build); libldacBT_abr compiles abr/src/ldacBT_abr.c. Floating-point build (_32BIT_FIXED_POINT not defined).
+# Engine only uses #include "ldac_a2dp.h"; inc/ and abr/inc/ are in includes because the upstream sources reference them as
+# "ldacBT.h" and <ldacBT.h>.
+cc_library(
+    name = "ldac",
+    srcs = [
+        "abr/inc/ldacBT_abr.h",
+        "abr/src/ldacBT_abr.c",
+        "inc/ldacBT.h",
+        "ldac_a2dp.c",
+        "src/ldacBT.c",
+        "src/ldaclib.c",
+    ],
+    hdrs = ["ldac_a2dp.h"],
+    copts = ["-O2"],
+    includes = [
+        ".",
+        "abr/inc",
+        "inc",
+    ],
+    textual_hdrs = glob(
+        [
+            "src/*.c",
+            "src/*.h",
+        ],
+        exclude = [
+            "src/ldacBT.c",
+            "src/ldaclib.c",
+        ],
+    ),
+    visibility = ["//visibility:public"],
+)

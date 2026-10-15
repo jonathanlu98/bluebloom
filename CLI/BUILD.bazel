@@ -1,0 +1,20 @@
+load("@rules_apple//apple:macos.bzl", "macos_command_line_application")
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
+
+objc_library(
+    name = "main",
+    srcs = ["main.m"],
+    deps = ["//Engine"],
+)
+
+# Command-line tool for debugging; Info.plist is embedded in __TEXT,__info_plist so the Bluetooth/microphone permission prompts have a usage description
+macos_command_line_application(
+    name = "bluebloom",
+    bundle_id = "app.bluebloom.cli",
+    infoplists = ["Info.plist"],
+    minimum_os_version = "14.2",
+    deps = [
+        ":main",
+        "//:optional_codecs",
+    ],
+)

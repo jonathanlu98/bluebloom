@@ -1,0 +1,21 @@
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
+
+# Blue Bloom's own license (MIT): third_party_notices in App/BUILD.bazel puts it at the start of the third-party notices
+exports_files(["LICENSE"])
+
+# Switch for private codec plugins: turned on by build --define=private_codecs=1 in the local user.bazelrc (not in the repository),
+# linking the plugins collected in private/ (not in the repository). Release builds leave it off; without a private/ directory the build works as long as the switch is off
+config_setting(
+    name = "with_private_codecs",
+    define_values = {"private_codecs": "1"},
+)
+
+# Both the app and the command-line tool depend on this, so the switch is checked in one place only
+objc_library(
+    name = "optional_codecs",
+    visibility = ["//visibility:public"],
+    deps = select({
+        ":with_private_codecs": ["//private:codecs"],
+        "//conditions:default": [],
+    }),
+)

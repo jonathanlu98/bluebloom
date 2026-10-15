@@ -1,0 +1,17 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+# License and version notes: third_party_notices in App/BUILD.bazel uses these to generate the ThirdPartyNotices.txt shipped with the app
+exports_files([
+    "COPYING",
+    "VERSION",
+])
+
+# libfreeaptx (LGPL-2.1+, see COPYING and VERSION): aptX encoder/decoder
+cc_library(
+    name = "freeaptx",
+    srcs = ["freeaptx.c"],
+    hdrs = ["freeaptx.h"],
+    copts = ["-O3"],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+)

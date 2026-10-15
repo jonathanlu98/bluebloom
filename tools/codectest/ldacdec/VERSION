@@ -1,0 +1,3 @@
+libldacdec 7f3bd6cc1586b764b02f2e4f20b16c7ff18758b9 2026-03-18
+https://github.com/hegdi/libldacdec (MIT, see LICENSE)
+Only the decoder library itself was copied (libldacdec.c and its dependencies), not the example programs ldacdec.c/ldacenc.c, the Makefile or the libldac submodule; contents unmodified. Used only by tools/codectest to verify the bitstream.

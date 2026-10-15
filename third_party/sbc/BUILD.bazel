@@ -1,0 +1,47 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+# License and version notes: third_party_notices in App/BUILD.bazel uses these to generate the ThirdPartyNotices.txt shipped with the app
+exports_files([
+    "NOTICE",
+    "VERSION",
+])
+
+# AOSP SBC encoder (Broadcom fixed-point implementation, Apache-2.0, see NOTICE and VERSION); file set follows upstream encoder/Android.bp.
+# Only used by :sbc; encoder/include is in includes because the upstream sources reference it as "sbc_encoder.h"
+cc_library(
+    name = "sbc_encoder",
+    srcs = glob(["encoder/srce/*.c"]),
+    hdrs = glob(["encoder/include/*.h"]),
+    copts = [
+        "-O2",
+        "-w",
+    ],
+    includes = ["encoder/include"],
+)
+
+# SBC encoding + A2DP packetizing. Engine only uses #include "sbc_a2dp.h"
+cc_library(
+    name = "sbc",
+    srcs = ["sbc_a2dp.c"],
+    hdrs = ["sbc_a2dp.h"],
+    copts = ["-O2"],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [":sbc_encoder"],
+)
+
+# AOSP SBC decoder (an implementation independent of the encoder; checks the CRC when decoding); file set follows upstream
+# decoder/Android.bp. Only used to verify our bitstream
+cc_library(
+    name = "sbc_decoder",
+    testonly = True,
+    srcs = glob(["decoder/srce/*.c"]),
+    hdrs = glob(["decoder/include/*.h"]),
+    copts = [
+        "-O2",
+        "-w",
+    ],
+    includes = ["decoder/include"],
+    textual_hdrs = ["decoder/srce/readsamplesjoint.inc"],
+    visibility = ["//visibility:public"],
+)

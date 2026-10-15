@@ -1,0 +1,84 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
+
+# libldacdec (MIT, see ldacdec/LICENSE, ldacdec/VERSION): open-source LDAC decoder, used only to verify our bitstream
+cc_library(
+    name = "ldacdec",
+    testonly = True,
+    srcs = [
+        "ldacdec/bit_allocation.c",
+        "ldacdec/bit_reader.c",
+        "ldacdec/huffCodes.c",
+        "ldacdec/imdct.c",
+        "ldacdec/libldacdec.c",
+        "ldacdec/spectrum.c",
+        "ldacdec/utility.c",
+    ],
+    hdrs = [
+        "ldacdec/bit_allocation.h",
+        "ldacdec/bit_reader.h",
+        "ldacdec/huffCodes.h",
+        "ldacdec/imdct.h",
+        "ldacdec/ldacdec.h",
+        "ldacdec/log.h",
+        "ldacdec/spectrum.h",
+        "ldacdec/utility.h",
+    ],
+    copts = [
+        "-std=gnu11",
+        "-O2",
+        "-w",
+    ],
+    includes = ["ldacdec"],
+)
+
+# LDAC round-trip test: ldac_a2dp encode and packetize → parse payload, check frame structure → decode with libldacdec → SNR, bitrate, encode time.
+# bazel run //tools/codectest:ldac_roundtrip; exit code is 0 when everything passes
+cc_binary(
+    name = "ldac_roundtrip",
+    testonly = True,
+    srcs = ["ldac_roundtrip.c"],
+    copts = ["-std=gnu11"],
+    deps = [
+        ":ldacdec",
+        "//third_party/libldac:ldac",
+    ],
+)
+
+# SBC round-trip test: sbc_a2dp encode and packetize → parse payload, check frame structure → decode with the AOSP SBC decoder → SNR, bitrate, encode time.
+# bazel run //tools/codectest:sbc_roundtrip; exit code is 0 when everything passes
+cc_binary(
+    name = "sbc_roundtrip",
+    testonly = True,
+    srcs = ["sbc_roundtrip.c"],
+    copts = ["-std=gnu11"],
+    deps = [
+        "//third_party/sbc",
+        "//third_party/sbc:sbc_decoder",
+    ],
+)
+
+# AAC round-trip test: AACEncoder encode, wrap in LATM → independently parse StreamMuxConfig, PayloadLengthInfo → cross-check with the system LATM parser →
+# decode with AudioConverter → SNR, bitrate, max AU, encode time. bazel run //tools/codectest:aac_roundtrip; exit code is 0 when everything passes.
+# AACEncoder.h/.m are symlinks into Engine/: compile these two files directly instead of depending on all of //Engine (Engine has no exports_files, so cross-package references are not visible)
+objc_library(
+    name = "aac_roundtrip_lib",
+    testonly = True,
+    srcs = [
+        "aac_roundtrip.m",
+        "//Engine:AACEncoder.h",
+        "//Engine:AACEncoder.m",
+    ],
+    includes = ["../../Engine"],
+    linkopts = [
+        "-framework", "AudioToolbox",
+        "-framework", "Foundation",
+    ],
+)
+
+cc_binary(
+    name = "aac_roundtrip",
+    testonly = True,
+    deps = [":aac_roundtrip_lib"],
+)

@@ -1,0 +1,9 @@
+AOSP packages/modules/Bluetooth system/embdrv/sbc 745ee92b87ed62b5a8a1bac47d5df8cad623bf59 2025-03-17
+https://android.googlesource.com/platform/packages/modules/Bluetooth/+archive/745ee92b87ed62b5a8a1bac47d5df8cad623bf59/system/embdrv/sbc.tar.gz
+Taken 2026-10-13 from refs/heads/main (i.e. the commit above; byte-for-byte identical to the archive fetched by commit hash). Only
+encoder/include (without the unused sbc_if.h), encoder/srce, decoder/include and decoder/srce were copied, unmodified. License
+Apache-2.0 (source file headers: Broadcom, Open Interface, Android); NOTICE is taken from the repository root at the same commit.
+sbc_a2dp.h and sbc_a2dp.c are our own A2DP wrapper and not part of upstream.
+decoder/ is only used for tests. Known issue: it decodes 4-subband joint stereo incorrectly (cross-checked with ffmpeg on
+2026-10-13: it also fails to decode 4-subband joint stereo encoded by ffmpeg, while ffmpeg decodes our streams of the same kind
+correctly); this does not affect the encoder.

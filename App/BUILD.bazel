@@ -1,0 +1,91 @@
+load("@rules_apple//apple:macos.bzl", "macos_application")
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
+load("@rules_swift//swift:swift_library.bzl", "swift_library")
+
+# Small Objective-C helpers used by the UI layer: headphone volume sync, reading the format of Apple Music's current track
+objc_library(
+    name = "Support",
+    srcs = [
+        "Support/SourceRateMonitor.m",
+        "Support/VolumeSync.m",
+    ],
+    hdrs = [
+        "Support/SourceRateMonitor.h",
+        "Support/VolumeSync.h",
+    ],
+    linkopts = ["-framework", "CoreAudio"],
+    module_name = "BlueBloomSupport",
+    deps = [
+        "//Driver:protocol",
+        "//Engine",
+    ],
+)
+
+# At build time, read the designated requirement of the driver's signature and compile it into the app:
+# when installing the driver, after copying as root, the installed copy is verified against it, so the driver in the app bundle cannot be swapped before the password is entered.
+# Compiled into the executable rather than stored as a resource file: the kernel verifies the executable's code pages against its signature, while resource files can be modified
+genrule(
+    name = "driver_requirement",
+    srcs = ["//Driver:BlueBloom"],
+    outs = ["DriverRequirement.swift"],
+    cmd = """
+        dir=$$(mktemp -d)
+        /usr/bin/unzip -q $(location //Driver:BlueBloom) -d $$dir
+        requirement=$$(/usr/bin/codesign -d -r- $$dir/BlueBloom.driver 2>&1 | /usr/bin/sed -n 's/^# designated => //p')
+        rm -rf $$dir
+        test -n "$$requirement" || { echo "Cannot read the designated requirement of the driver signature" >&2; exit 1; }
+        printf '// Generated file (driver_requirement in App/BUILD.bazel), do not edit by hand\\nlet driverDesignatedRequirement = #"%s"#\\n' "$$requirement" > $@
+    """,
+)
+
+# Notices shipped with the app ("Third-Party Notices" on the About page): Blue Bloom's own MIT license, plus the license, NOTICE and VERSION shipped with each library in third_party
+genrule(
+    name = "third_party_notices",
+    srcs = [
+        "//:LICENSE",
+        "//third_party/libldac:LICENSE",
+        "//third_party/libldac:NOTICE",
+        "//third_party/libldac:VERSION",
+        "//third_party/sbc:NOTICE",
+        "//third_party/sbc:VERSION",
+        "//third_party/libfreeaptx:COPYING",
+        "//third_party/libfreeaptx:VERSION",
+    ],
+    outs = ["ThirdPartyNotices.txt"],
+    cmd = " ".join([
+        "$(location //tools/licenses:make-notices.sh) $@ $(location //:LICENSE)",
+        "$(location //third_party/libldac:LICENSE) $(location //third_party/libldac:NOTICE) $(location //third_party/libldac:VERSION)",
+        "$(location //third_party/sbc:NOTICE) $(location //third_party/sbc:VERSION)",
+        "$(location //third_party/libfreeaptx:COPYING) $(location //third_party/libfreeaptx:VERSION)",
+    ]),
+    tools = ["//tools/licenses:make-notices.sh"],
+)
+
+# Menu bar UI (SwiftUI): status and devices, Settings window, pairing window
+swift_library(
+    name = "AppLib",
+    srcs = glob(["Sources/**/*.swift"]) + [":driver_requirement"],
+    # Engine callbacks all run on the main queue and the UI models are marked @MainActor; Swift 6 strict concurrency checking is off
+    copts = ["-swift-version", "5"],
+    module_name = "BlueBloomApp",
+    deps = [
+        ":Support",
+        "//Engine",
+    ],
+)
+
+# Menu bar app; the virtual device driver sits in Contents/Resources and the app installs it to /Library/Audio/Plug-Ins/HAL
+macos_application(
+    name = "BlueBloom",
+    additional_contents = {"//Driver:BlueBloom": "Resources"},
+    # Icon Composer document (layered Liquid Glass icon); actool also renders the flat icon used before macOS 26
+    app_icons = glob(["AppIcon.icon/**"]),
+    bundle_id = "app.bluebloom",
+    infoplists = ["Info.plist"],
+    minimum_os_version = "14.2",
+    resources = glob(["Resources/**"]) + [":third_party_notices"],
+    deps = [
+        ":AppLib",
+        "//:optional_codecs",
+    ],
+)

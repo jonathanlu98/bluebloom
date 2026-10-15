@@ -1,0 +1,6 @@
+module(name = "bluebloom")
+
+bazel_dep(name = "rules_apple", version = "5.3.0")
+bazel_dep(name = "apple_support", version = "2.10.1")
+bazel_dep(name = "rules_cc", version = "0.2.26")
+bazel_dep(name = "rules_swift", version = "4.1.1")

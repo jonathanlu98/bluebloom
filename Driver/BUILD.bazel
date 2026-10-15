@@ -1,0 +1,34 @@
+load("@rules_apple//apple:macos.bzl", "macos_bundle")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+# Contract between the driver and the app (device UID, format of the custom property for fetching sound)
+cc_library(
+    name = "protocol",
+    hdrs = ["VirtualDeviceProtocol.h"],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "BlueBloomDeviceLib",
+    srcs = ["BlueBloomDevice.c"],
+    deps = [":protocol"],
+    linkopts = [
+        "-framework", "CoreAudio",
+        "-framework", "CoreFoundation",
+    ],
+    # The factory function BlueBloom_Create is referenced only from Info.plist, so it must be kept
+    alwayslink = True,
+)
+
+# Virtual output device "Blue Bloom": a Core Audio server plug-in, installed into /Library/Audio/Plug-Ins/HAL/.
+# Do not change bundle_id once set: macOS identifies the installed plug-in by it, and the app overwrites the same one when updating the driver (changed from a personal prefix to app.bluebloom on 2026-10-14)
+macos_bundle(
+    name = "BlueBloom",
+    bundle_extension = "driver",
+    bundle_id = "app.bluebloom.driver",
+    infoplists = ["Info.plist"],
+    minimum_os_version = "14.2",
+    visibility = ["//visibility:public"],
+    deps = [":BlueBloomDeviceLib"],
+)

@@ -1,0 +1,8 @@
+/bazel-*
+# Personal-only parts (private codec plugins etc.), kept out of the repository
+/private/
+/user.bazelrc
+__pycache__/
+.DS_Store
+# Local agent instructions, not part of the repository
+/CLAUDE.md

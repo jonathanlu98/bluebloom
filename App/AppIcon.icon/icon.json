@@ -1,0 +1,43 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "srgb:0.08627,0.18824,0.49804,1.00000",
+      "srgb:0.13725,0.10196,0.36863,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "layers" : [
+        { "image-name" : "cups.svg", "name" : "cups", "glass" : true },
+        { "image-name" : "pads.svg", "name" : "pads", "glass" : true }
+      ],
+      "name" : "earcups",
+      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+      "translucency" : { "enabled" : true, "value" : 0.2 }
+    },
+    {
+      "layers" : [
+        { "image-name" : "band.svg", "name" : "band", "glass" : true }
+      ],
+      "name" : "headband",
+      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+      "translucency" : { "enabled" : true, "value" : 0.2 }
+    },
+    {
+      "layers" : [
+        { "image-name" : "petal-1.svg", "name" : "petal-1", "opacity" : 0.75 },
+        { "image-name" : "petal-2.svg", "name" : "petal-2", "opacity" : 0.75 },
+        { "image-name" : "petal-3.svg", "name" : "petal-3", "opacity" : 0.75 },
+        { "image-name" : "petal-4.svg", "name" : "petal-4", "opacity" : 0.75 },
+        { "image-name" : "petal-5.svg", "name" : "petal-5", "opacity" : 0.75 }
+      ],
+      "name" : "bloom",
+      "shadow" : { "kind" : "neutral", "opacity" : 0.4 },
+      "translucency" : { "enabled" : true, "value" : 0.5 }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [ "watchOS" ],
+    "squares" : "shared"
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSAppleEventsUsageDescription": {
+      "comment": "读 Apple Music 当前曲目的采样率（跟随音源）、安装驱动时请求管理员权限的说明",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom liest die Abtastrate des aktuellen Apple-Music-Titels, um sich daran anzupassen, und benötigt Administratorrechte, um sein virtuelles Audiogerät zu installieren."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom reads the sample rate of the current Apple Music track so it can match it, and asks for administrator permission to install its virtual audio device."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom lee la frecuencia de muestreo de la pista actual de Apple Music para ajustarse a ella, y pide permiso de administrador para instalar su dispositivo de audio virtual."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom lit la fréquence d’échantillonnage du morceau Apple Music en cours pour s’y adapter, et demande l’autorisation d’un administrateur pour installer son périphérique audio virtuel."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom は Apple Music で再生中の曲のサンプルレートに合わせるためにそれを読み取り、仮想オーディオデバイスのインストール時に管理者の許可を求めます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom은 Apple Music에서 재생 중인 곡의 샘플률에 맞추기 위해 이를 읽고, 가상 오디오 기기를 설치할 때 관리자 권한을 요청합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom 读取 Apple Music 当前曲目的采样率以便跟随它，并在安装虚拟音频设备时请求管理员权限。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom 讀取 Apple Music 目前曲目的取樣率以便跟隨它，並在安裝虛擬音訊裝置時請求管理者權限。"
+          }
+        }
+      }
+    },
+    "NSBluetoothAlwaysUsageDescription": {
+      "comment": "Bluetooth 权限弹窗里的用途说明",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom verbindet sich mit deinen Bluetooth-Kopfhörern, um Audio mit hochwertigen Codecs wie LDAC und aptX zu streamen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom connects to your Bluetooth headphones to stream audio with high-quality codecs such as LDAC and aptX."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom se conecta a tus auriculares Bluetooth para transmitir audio con códecs de alta calidad como LDAC y aptX."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom se connecte à votre casque Bluetooth pour diffuser l’audio avec des codecs de haute qualité comme LDAC et aptX."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom は Bluetooth ヘッドフォンに接続し、LDAC や aptX などの高音質コーデックでオーディオをストリーミングします。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom은 Bluetooth 헤드폰에 연결하여 LDAC, aptX 등 고음질 코덱으로 오디오를 스트리밍합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom 需要连接你的蓝牙耳机，以 LDAC、aptX 等高品质编码推送音频。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue Bloom 需要連接你的藍牙耳機，以 LDAC、aptX 等高品質編碼串流音訊。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
