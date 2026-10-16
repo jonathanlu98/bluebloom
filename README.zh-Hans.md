@@ -49,7 +49,7 @@ Blue Bloom 是一款菜单栏 app，用耳机支持的最好编码把 Mac 的声
 
 ### 下载
 
-1. 从 [Releases](https://github.com/JBoomRadio/bluebloom/releases) 下载 `BlueBloom-<版本>.dmg`，打开后把 Blue Bloom 拖进「应用程序」。
+1. 从 [Releases](https://github.com/jonathanlu98/bluebloom/releases) 下载 `BlueBloom-<版本>.dmg`，打开后把 Blue Bloom 拖进「应用程序」。
 2. 打开 Blue Bloom。它还没有用 Apple 开发者 ID 签名，第一次打开会被 macOS 拦下：到**系统设置 › 隐私与安全性**里点**仍要打开**。
 3. 允许访问蓝牙，阅读首次说明，按提示安装 Blue Bloom 音频设备，需要输入一次管理员密码。
 
@@ -60,7 +60,7 @@ Blue Bloom 是一款菜单栏 app，用耳机支持的最好编码把 Mac 的声
 你需要 Xcode 26 或更高版本，以及 [Bazelisk](https://github.com/bazelbuild/bazelisk)（`brew install bazelisk`）。
 
 ```sh
-git clone https://github.com/JBoomRadio/bluebloom.git
+git clone https://github.com/jonathanlu98/bluebloom.git
 cd bluebloom
 tools/install-app.sh
 ```
@@ -78,7 +78,7 @@ tools/install-app.sh
 开发者手上没有大多数耳机，能不能修好全靠日志。
 
 1. 出问题后尽快打开**设置 › 关于 › 导出诊断信息…**，它会在桌面保存 `BlueBloom-Diagnostics-<日期>.zip`，里面有 Blue Bloom 的日志和最近两小时的 macOS 蓝牙日志。蓝牙地址已打码，设备名称会保留。
-2. 用 **Bug report** 表单[提交 issue](https://github.com/JBoomRadio/bluebloom/issues/new/choose)，附上这个 zip；表单里还要贴上**复制诊断信息**得到的摘要。
+2. 用 **Bug report** 表单[提交 issue](https://github.com/jonathanlu98/bluebloom/issues/new/choose)，附上这个 zip；表单里还要贴上**复制诊断信息**得到的摘要。
 
 非常欢迎报告还没测过的耳机：**Headphones report** 表单用来收集 Blue Bloom 在你的耳机上的表现，好坏都可以。可以用中文写。
 

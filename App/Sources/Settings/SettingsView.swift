@@ -452,7 +452,7 @@ struct AboutPane: View {
     @State private var exportError: String?
 
     // Public repository; the About pane links to it as the project page (issues, releases)
-    static let projectURL: URL? = URL(string: "https://github.com/JBoomRadio/bluebloom")
+    static let projectURL: URL? = URL(string: "https://github.com/jonathanlu98/bluebloom")
     // Width of the body text (intro, acknowledgements, footer notices), a bit narrower than the window and centered
     static let textWidth: CGFloat = 460
 

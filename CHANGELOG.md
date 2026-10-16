@@ -28,4 +28,4 @@ First public pre-release.
 - While Blue Bloom is connected, other apps can't use the headphones' microphone.
 - After Blue Bloom disconnects them, some headphones (observed with Focal Bathys) can't be reached for 20 to 35 seconds.
 
-[0.1.0]: https://github.com/JBoomRadio/bluebloom/releases/tag/v0.1.0
+[0.1.0]: https://github.com/jonathanlu98/bluebloom/releases/tag/v0.1.0

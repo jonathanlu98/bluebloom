@@ -47,7 +47,7 @@ Blue Bloom is a menu bar app that streams your Mac's audio to Bluetooth headphon
 
 ### Download
 
-1. Download `BlueBloom-<version>.dmg` from [Releases](https://github.com/JBoomRadio/bluebloom/releases), open it and drag Blue Bloom to Applications.
+1. Download `BlueBloom-<version>.dmg` from [Releases](https://github.com/jonathanlu98/bluebloom/releases), open it and drag Blue Bloom to Applications.
 2. Open Blue Bloom. It isn't signed with an Apple Developer ID yet, so macOS blocks it the first time: go to **System Settings › Privacy & Security** and click **Open Anyway**.
 3. Allow Bluetooth access, read the first-run notice, and install the Blue Bloom audio device when asked. This needs an administrator password once.
 
@@ -58,7 +58,7 @@ After each update macOS asks for Bluetooth access again, because the app isn't s
 You need Xcode 26 or later and [Bazelisk](https://github.com/bazelbuild/bazelisk) (`brew install bazelisk`).
 
 ```sh
-git clone https://github.com/JBoomRadio/bluebloom.git
+git clone https://github.com/jonathanlu98/bluebloom.git
 cd bluebloom
 tools/install-app.sh
 ```
@@ -76,7 +76,7 @@ tools/install-app.sh
 The developer doesn't have most headphones, so logs are what make a problem fixable.
 
 1. Right after the problem happens, open **Settings › About › Export Diagnostics…**. It saves `BlueBloom-Diagnostics-<date>.zip` to your Desktop with Blue Bloom's logs and the last two hours of the macOS Bluetooth log. Bluetooth addresses are masked; device names are included.
-2. [Open an issue](https://github.com/JBoomRadio/bluebloom/issues/new/choose) with the **Bug report** form and attach the zip. The form also asks for the summary from **Copy Diagnostics**.
+2. [Open an issue](https://github.com/jonathanlu98/bluebloom/issues/new/choose) with the **Bug report** form and attach the zip. The form also asks for the summary from **Copy Diagnostics**.
 
 Headphones that haven't been tested yet are very welcome: the **Headphones report** form collects how Blue Bloom works with yours, good or bad. You can write in English or Chinese.
 
