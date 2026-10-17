@@ -5190,6 +5190,52 @@
         }
       }
     },
+    "Local build · %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lokaler Build · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compilación local · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compilation locale · %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ローカルビルド · %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "로컬 빌드 · %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本地构建 · %@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本機建置 · %@"
+          }
+        }
+      }
+    },
     "Looking for nearby devices…": {
       "localizations": {
         "de": {
@@ -8784,6 +8830,52 @@
         }
       }
     },
+    "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kopfhörer haben den Fernbedienungskanal von Blue Bloom abgelehnt (manche nehmen ihn nur direkt nach dem Verbinden an), daher wird die Mac-Lautstärke per Software zusätzlich zur Kopfhörerlautstärke angewendet. Ist es zu leise, erhöhe die Lautstärke am Kopfhörer. Blue Bloom versucht es weiter; verschwindet der Hinweis nicht, verbinde die Kopfhörer neu."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los auriculares rechazaron el canal de control remoto de Blue Bloom (algunos solo lo aceptan justo después de conectarse), así que el volumen del Mac se aplica por software sobre el volumen propio de los auriculares. Si suena demasiado bajo, sube el volumen en los auriculares. Blue Bloom sigue reintentando; si este aviso no desaparece, vuelve a conectar los auriculares."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le casque a refusé le canal de télécommande de Blue Bloom (certains ne l'acceptent que juste après la connexion) : le volume du Mac est donc appliqué par logiciel, en plus du volume propre au casque. Si le son est trop faible, montez le volume sur le casque. Blue Bloom réessaie en continu ; si ce message ne disparaît pas, reconnectez le casque."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヘッドフォンが Blue Bloom のリモートコントロールチャネルを拒否したため（接続直後にしか受け付けない機種もあります）、Mac の音量はソフトウェアで調整され、ヘッドフォン本体の音量に重ねて適用されます。音が小さい場合はヘッドフォン側で音量を上げてください。Blue Bloom は再試行を続けます。この表示が消えない場合は、ヘッドフォンを接続し直してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "헤드폰이 Blue Bloom의 리모컨 채널을 거부해서(연결 직후에만 받아들이는 헤드폰도 있습니다) Mac 음량이 소프트웨어로 조절되며 헤드폰 자체 음량에 더해집니다. 소리가 작으면 헤드폰에서 음량을 높이세요. Blue Bloom이 계속 재시도합니다. 이 표시가 사라지지 않으면 헤드폰을 다시 연결하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "耳机拒绝了 Blue Bloom 的遥控通道（有些耳机只在刚连上时接受），Mac 音量改为在软件里调节，叠在耳机自己的音量上。声音偏小时请在耳机上调大。Blue Bloom 会一直重试；如果提示一直不消失，请重新连接耳机。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "耳機拒絕了 Blue Bloom 的遙控通道（有些耳機只在剛連上時接受），Mac 音量改為在軟體中調節，疊加在耳機本身的音量上。聲音偏小時請在耳機上調大。Blue Bloom 會持續重試；如果提示一直沒有消失，請重新連接耳機。"
+          }
+        }
+      }
+    },
     "The operation couldn't be completed. The log has the details.": {
       "localizations": {
         "de": {
@@ -10304,52 +10396,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "macOS"
-          }
-        }
-      }
-    },
-    "macOS is holding the headphones' remote control channel, so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying and this goes away once it gets the channel.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "macOS belegt den Fernbedienungskanal der Kopfhörer, daher wird die Mac-Lautstärke per Software zusätzlich zur Kopfhörerlautstärke angewendet. Ist es zu leise, erhöhe die Lautstärke am Kopfhörer. Blue Bloom versucht es weiter; der Hinweis verschwindet, sobald der Kanal frei ist."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "macOS está usando el canal de control remoto de los auriculares, así que el volumen del Mac se aplica por software sobre el volumen propio de los auriculares. Si suena demasiado bajo, sube el volumen en los auriculares. Blue Bloom sigue reintentando y este aviso desaparece cuando obtiene el canal."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "macOS occupe le canal de télécommande du casque : le volume du Mac est donc appliqué par logiciel, en plus du volume propre au casque. Si le son est trop faible, montez le volume sur le casque. Blue Bloom réessaie en continu et ce message disparaît dès qu'il obtient le canal."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "macOS がヘッドフォンのリモートコントロールチャネルを使用中のため、Mac の音量はソフトウェアで調整され、ヘッドフォン本体の音量に重ねて適用されます。音が小さい場合はヘッドフォン側で音量を上げてください。Blue Bloom は再試行を続け、チャネルを取得するとこの表示は消えます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "macOS가 헤드폰의 리모컨 채널을 사용 중이어서 Mac 음량이 소프트웨어로 조절되며 헤드폰 자체 음량에 더해집니다. 소리가 작으면 헤드폰에서 음량을 높이세요. Blue Bloom이 계속 재시도하며, 채널을 얻으면 이 표시가 사라집니다."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "macOS 占着耳机的遥控通道，Mac 音量改为在软件里调节，叠在耳机自己的音量上。声音偏小时请在耳机上调大。Blue Bloom 会一直重试，抢到通道后这条提示会消失。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "macOS 佔用了耳機的遙控通道，Mac 音量改為在軟體中調節，疊加在耳機本身的音量上。聲音偏小時請在耳機上調大。Blue Bloom 會持續重試，取得通道後這則提示會消失。"
           }
         }
       }

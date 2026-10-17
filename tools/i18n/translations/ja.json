@@ -111,6 +111,7 @@
   "Left earbud": "左のイヤフォン",
   "Limited by Maximum sample rate, so macOS resamples to %@.": "「最大サンプルレート」の設定により、macOS が %@ にリサンプリングします。",
   "Limited by Maximum sample rate; macOS resamples the source to this rate.": "「最大サンプルレート」の設定による制限です。macOS が音源をこのレートにリサンプリングします。",
+  "Local build · %@": "ローカルビルド · %@",
   "Looking for nearby devices…": "近くのデバイスを探しています…",
   "Lowers the bitrate when the link gets congested, then climbs back, never above the setting above.": "接続が混雑するとビットレートを下げ、その後徐々に戻します。上の設定を超えることはありません。",
   "Match the source": "音源に合わせる",
@@ -222,5 +223,5 @@
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Blue Bloom の接続中は、他のアプリからヘッドホンのマイクを使用できません（通話・ディクテーション・録音を含む）。",
   "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "Wi-Fi と Bluetooth が同じ無線を共有する Mac では、Wi-Fi のピアツーピア検索で音途切れが起きます。",
   "macOS": "macOS",
-  "macOS is holding the headphones' remote control channel, so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying and this goes away once it gets the channel.": "macOS がヘッドフォンのリモートコントロールチャネルを使用中のため、Mac の音量はソフトウェアで調整され、ヘッドフォン本体の音量に重ねて適用されます。音が小さい場合はヘッドフォン側で音量を上げてください。Blue Bloom は再試行を続け、チャネルを取得するとこの表示は消えます。"
+  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "ヘッドフォンが Blue Bloom のリモートコントロールチャネルを拒否したため（接続直後にしか受け付けない機種もあります）、Mac の音量はソフトウェアで調整され、ヘッドフォン本体の音量に重ねて適用されます。音が小さい場合はヘッドフォン側で音量を上げてください。Blue Bloom は再試行を続けます。この表示が消えない場合は、ヘッドフォンを接続し直してください。"
 }

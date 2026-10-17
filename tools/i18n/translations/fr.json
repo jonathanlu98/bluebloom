@@ -111,6 +111,7 @@
   "Left earbud": "Écouteur gauche",
   "Limited by Maximum sample rate, so macOS resamples to %@.": "Limité par « Fréquence d’échantillonnage maximale », macOS rééchantillonne donc à %@.",
   "Limited by Maximum sample rate; macOS resamples the source to this rate.": "Limité par « Fréquence d’échantillonnage maximale » ; macOS rééchantillonne la source à cette valeur.",
+  "Local build · %@": "Compilation locale · %@",
   "Looking for nearby devices…": "Recherche d’appareils à proximité…",
   "Lowers the bitrate when the link gets congested, then climbs back, never above the setting above.": "Réduit le débit quand la liaison est encombrée, puis le remonte, sans jamais dépasser le réglage ci-dessus.",
   "Match the source": "Comme la source",
@@ -222,5 +223,5 @@
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Tant que Blue Bloom est connecté, les autres apps ne peuvent pas utiliser le micro des écouteurs — appels, dictée et enregistrement compris.",
   "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "Sur les Mac où le Wi-Fi et le Bluetooth partagent une même radio, les recherches Wi-Fi pair à pair provoquent des coupures.",
   "macOS": "macOS",
-  "macOS is holding the headphones' remote control channel, so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying and this goes away once it gets the channel.": "macOS occupe le canal de télécommande du casque : le volume du Mac est donc appliqué par logiciel, en plus du volume propre au casque. Si le son est trop faible, montez le volume sur le casque. Blue Bloom réessaie en continu et ce message disparaît dès qu'il obtient le canal."
+  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "Le casque a refusé le canal de télécommande de Blue Bloom (certains ne l'acceptent que juste après la connexion) : le volume du Mac est donc appliqué par logiciel, en plus du volume propre au casque. Si le son est trop faible, montez le volume sur le casque. Blue Bloom réessaie en continu ; si ce message ne disparaît pas, reconnectez le casque."
 }

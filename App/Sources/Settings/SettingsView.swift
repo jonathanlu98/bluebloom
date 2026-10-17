@@ -464,6 +464,12 @@ struct AboutPane: View {
                 Text("Version \(AppModel.appVersion) (\(AppModel.appBuild))")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                // A local build (tools/install-app.sh, may include private codecs) says so, with the commit it came from
+                if !AppModel.isReleaseBuild {
+                    Text("Local build · \(AppModel.sourceCommit)")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
                 // Codecs aren't listed: more and more get compiled in, and the acknowledgements already list each one
                 Text("High-quality Bluetooth audio for your Mac.")
                     .multilineTextAlignment(.center)

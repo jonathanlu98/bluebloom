@@ -261,7 +261,7 @@ struct NowPlayingCard: View {
                     Label("Headphone volume isn't synced with the Mac", systemImage: "speaker.badge.exclamationmark")
                         .labelStyle(.compact)
                         .font(.system(size: 11)).foregroundStyle(.orange)
-                        .help(Text("macOS is holding the headphones' remote control channel, so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying and this goes away once it gets the channel."))
+                        .help(Text("The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones."))
                 }
                 }
             }

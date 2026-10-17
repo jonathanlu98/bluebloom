@@ -111,6 +111,7 @@
   "Left earbud": "Linker Ohrhörer",
   "Limited by Maximum sample rate, so macOS resamples to %@.": "Durch „Maximale Abtastrate“ begrenzt, daher rechnet macOS auf %@ um.",
   "Limited by Maximum sample rate; macOS resamples the source to this rate.": "Durch „Maximale Abtastrate“ begrenzt; macOS rechnet die Quelle auf diese Rate um.",
+  "Local build · %@": "Lokaler Build · %@",
   "Looking for nearby devices…": "Suche nach Geräten in der Nähe …",
   "Lowers the bitrate when the link gets congested, then climbs back, never above the setting above.": "Senkt die Bitrate bei überlasteter Verbindung und erhöht sie danach wieder, nie über die Einstellung oben.",
   "Match the source": "Wie die Quelle",
@@ -222,5 +223,5 @@
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Solange Blue Bloom verbunden ist, können andere Apps das Mikrofon der Kopfhörer nicht nutzen – einschließlich Anrufen, Diktat und Aufnahme.",
   "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "Auf Macs, bei denen WLAN und Bluetooth ein Funkmodul teilen, verursachen WLAN-Peer-to-Peer-Suchen Aussetzer.",
   "macOS": "macOS",
-  "macOS is holding the headphones' remote control channel, so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying and this goes away once it gets the channel.": "macOS belegt den Fernbedienungskanal der Kopfhörer, daher wird die Mac-Lautstärke per Software zusätzlich zur Kopfhörerlautstärke angewendet. Ist es zu leise, erhöhe die Lautstärke am Kopfhörer. Blue Bloom versucht es weiter; der Hinweis verschwindet, sobald der Kanal frei ist."
+  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "Die Kopfhörer haben den Fernbedienungskanal von Blue Bloom abgelehnt (manche nehmen ihn nur direkt nach dem Verbinden an), daher wird die Mac-Lautstärke per Software zusätzlich zur Kopfhörerlautstärke angewendet. Ist es zu leise, erhöhe die Lautstärke am Kopfhörer. Blue Bloom versucht es weiter; verschwindet der Hinweis nicht, verbinde die Kopfhörer neu."
 }

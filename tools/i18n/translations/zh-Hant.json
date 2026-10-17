@@ -111,6 +111,7 @@
   "Left earbud": "左耳",
   "Limited by Maximum sample rate, so macOS resamples to %@.": "受「最高取樣率」設定限制，由 macOS 重新取樣到 %@。",
   "Limited by Maximum sample rate; macOS resamples the source to this rate.": "受「最高取樣率」設定限制，由 macOS 將音源重新取樣到這個取樣率。",
+  "Local build · %@": "本機建置 · %@",
   "Looking for nearby devices…": "正在尋找附近的裝置⋯",
   "Lowers the bitrate when the link gets congested, then climbs back, never above the setting above.": "連線擁塞時降低位元率，之後再逐步回升，最高不超過上方的設定。",
   "Match the source": "跟隨音源",
@@ -222,5 +223,5 @@
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Blue Bloom 連接期間，其他 App 無法使用耳機的麥克風——包括通話、聽寫與錄音。",
   "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "在 Wi-Fi 與藍牙共用同一無線電的 Mac 上，Wi-Fi 點對點掃描會造成斷音。",
   "macOS": "macOS",
-  "macOS is holding the headphones' remote control channel, so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying and this goes away once it gets the channel.": "macOS 佔用了耳機的遙控通道，Mac 音量改為在軟體中調節，疊加在耳機本身的音量上。聲音偏小時請在耳機上調大。Blue Bloom 會持續重試，取得通道後這則提示會消失。"
+  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "耳機拒絕了 Blue Bloom 的遙控通道（有些耳機只在剛連上時接受），Mac 音量改為在軟體中調節，疊加在耳機本身的音量上。聲音偏小時請在耳機上調大。Blue Bloom 會持續重試；如果提示一直沒有消失，請重新連接耳機。"
 }

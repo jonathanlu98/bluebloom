@@ -111,6 +111,7 @@
   "Left earbud": "왼쪽 이어버드",
   "Limited by Maximum sample rate, so macOS resamples to %@.": "「최대 샘플률」 설정으로 macOS가 %@(으)로 리샘플링합니다.",
   "Limited by Maximum sample rate; macOS resamples the source to this rate.": "「최대 샘플률」 설정으로 제한되어 macOS가 음원을 이 샘플률로 리샘플링합니다.",
+  "Local build · %@": "로컬 빌드 · %@",
   "Looking for nearby devices…": "주변 기기를 찾는 중…",
   "Lowers the bitrate when the link gets congested, then climbs back, never above the setting above.": "연결이 혼잡하면 비트레이트를 낮췄다가 다시 올립니다. 위의 설정보다 높아지지 않습니다.",
   "Match the source": "음원에 맞춤",
@@ -222,5 +223,5 @@
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Blue Bloom이 연결된 동안 다른 앱에서는 헤드폰 마이크를 사용할 수 없습니다(통화, 받아쓰기, 녹음 포함).",
   "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "Wi-Fi와 Bluetooth가 하나의 무선 장치를 공유하는 Mac에서는 Wi-Fi P2P 검색 때문에 소리가 끊깁니다.",
   "macOS": "macOS",
-  "macOS is holding the headphones' remote control channel, so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying and this goes away once it gets the channel.": "macOS가 헤드폰의 리모컨 채널을 사용 중이어서 Mac 음량이 소프트웨어로 조절되며 헤드폰 자체 음량에 더해집니다. 소리가 작으면 헤드폰에서 음량을 높이세요. Blue Bloom이 계속 재시도하며, 채널을 얻으면 이 표시가 사라집니다."
+  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "헤드폰이 Blue Bloom의 리모컨 채널을 거부해서(연결 직후에만 받아들이는 헤드폰도 있습니다) Mac 음량이 소프트웨어로 조절되며 헤드폰 자체 음량에 더해집니다. 소리가 작으면 헤드폰에서 음량을 높이세요. Blue Bloom이 계속 재시도합니다. 이 표시가 사라지지 않으면 헤드폰을 다시 연결하세요."
 }

@@ -2,6 +2,29 @@
 
 All notable changes to Blue Bloom are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). Versions before 1.0 are pre-releases.
 
+## [0.1.1] - 2026-10-17
+
+### Added
+
+- Intel Macs: the app and its audio device are now universal (Apple silicon and Intel). Tested briefly on macOS 26 on an Intel machine.
+
+### Changed
+
+- macOS 26 counts as tested: Blue Bloom no longer asks before it takes over headphones there.
+- Builds from source say so: the About pane shows "Local build" with the source commit, and the log and diagnostics mark them as local builds.
+- `tools/install-app.sh` (build from source) builds for the Mac's architecture and installs into `/Applications`, replacing a downloaded copy.
+
+### Fixed
+
+- The note on "Headphone volume isn't synced with the Mac" said macOS was holding the remote control channel; it now says the headphones refused it and suggests reconnecting them.
+
+### Known issues
+
+- The app is not signed with an Apple Developer ID or notarized. macOS blocks it the first time; allow it in System Settings › Privacy & Security. After each update macOS asks for Bluetooth access again.
+- Tested on macOS 27 with Apple silicon, with Focal Bathys and Sony WH-1000XM4 headphones, and on macOS 26 on an Intel machine with a JBL Go 3 speaker.
+- While Blue Bloom is connected, other apps can't use the headphones' microphone.
+- After Blue Bloom disconnects them, some headphones (observed with Focal Bathys) can't be reached for 20 to 35 seconds.
+
 ## [0.1.0] - 2026-10-15
 
 First public pre-release.
@@ -28,4 +51,5 @@ First public pre-release.
 - While Blue Bloom is connected, other apps can't use the headphones' microphone.
 - After Blue Bloom disconnects them, some headphones (observed with Focal Bathys) can't be reached for 20 to 35 seconds.
 
+[0.1.1]: https://github.com/jonathanlu98/bluebloom/releases/tag/v0.1.1
 [0.1.0]: https://github.com/jonathanlu98/bluebloom/releases/tag/v0.1.0

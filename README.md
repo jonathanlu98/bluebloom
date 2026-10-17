@@ -29,8 +29,8 @@ Blue Bloom is a menu bar app that streams your Mac's audio to Bluetooth headphon
 
 ## Requirements
 
-- A Mac with Apple silicon and macOS 14.2 or later.
-- Tested on macOS 27. On other versions Blue Bloom asks before it takes over your headphones.
+- A Mac with Apple silicon or an Intel processor, running macOS 14.2 or later.
+- Tested on macOS 27 with Apple silicon, and briefly on macOS 26 on an Intel machine. On other versions Blue Bloom asks before it takes over your headphones.
 
 ## How it works
 
@@ -63,7 +63,7 @@ cd bluebloom
 tools/install-app.sh
 ```
 
-`install-app.sh` builds the app, installs it to `~/Applications` and opens it.
+`install-app.sh` builds the app, installs it to `/Applications` (replacing any copy there) and opens it.
 
 ## Usage
 

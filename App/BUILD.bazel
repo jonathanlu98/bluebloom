@@ -74,15 +74,17 @@ swift_library(
     ],
 )
 
-# BBSourceCommit in Info.plist: the commit the build came from (tools/workspace-status.sh). stamp = 1 reads
+# BBSourceCommit (the commit the build came from) and BBBuildKind (release or local) in Info.plist (tools/workspace-status.sh). stamp = 1 reads
 # bazel-out/stable-status.txt; only this small plist and the bundle are rebuilt when the commit changes
 genrule(
     name = "build_info_plist",
     outs = ["BuildInfo.plist"],
     cmd = " ".join([
         "commit=$$(sed -n 's/^STABLE_BB_SOURCE_COMMIT //p' bazel-out/stable-status.txt);",
-        "printf '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<plist version=\"1.0\"><dict><key>BBSourceCommit</key><string>%s</string></dict></plist>\\n'",
-        "\"$${commit:-unknown}\" > $@",
+        "kind=$$(sed -n 's/^STABLE_BB_BUILD_KIND //p' bazel-out/stable-status.txt);",
+        "printf '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<plist version=\"1.0\"><dict><key>BBSourceCommit</key><string>%s</string>",
+        "<key>BBBuildKind</key><string>%s</string></dict></plist>\\n'",
+        "\"$${commit:-unknown}\" \"$${kind:-local}\" > $@",
     ]),
     stamp = 1,
 )

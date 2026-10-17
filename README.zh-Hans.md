@@ -31,8 +31,8 @@ Blue Bloom 是一款菜单栏 app，用耳机支持的最好编码把 Mac 的声
 
 ## 系统要求
 
-- Apple 芯片的 Mac，macOS 14.2 或更高版本。
-- 在 macOS 27 上测试过。其他版本上，Blue Bloom 会先征得你同意再接管耳机。
+- Apple 芯片或 Intel 处理器的 Mac，macOS 14.2 或更高版本。
+- 在 Apple 芯片的 macOS 27 上测试过，在 Intel 机器的 macOS 26 上做过初步测试。其他版本上，Blue Bloom 会先征得你同意再接管耳机。
 
 ## 工作原理
 
@@ -65,7 +65,7 @@ cd bluebloom
 tools/install-app.sh
 ```
 
-`install-app.sh` 会构建 app、安装到 `~/Applications` 并打开。
+`install-app.sh` 会构建 app、安装到 `/Applications`（替换已有的那份）并打开。
 
 ## 使用
 

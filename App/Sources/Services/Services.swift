@@ -195,7 +195,7 @@ enum LoginItem {
 // The private XPC protocol for talking to bluetoothd directly (message numbers, key names, call order) was observed on these major macOS versions; a system update may change it.
 // On untested versions the headphones aren't taken over by default (left to macOS) until the user confirms in the setup checklist; the confirmation is stored per major version and asked again on a new one
 enum Compatibility {
-    static let testedMajorVersions: Set<Int> = [27]
+    static let testedMajorVersions: Set<Int> = [26, 27]
 
     static var majorVersion: Int { ProcessInfo.processInfo.operatingSystemVersion.majorVersion }
     static var isTested: Bool { testedMajorVersions.contains(majorVersion) }

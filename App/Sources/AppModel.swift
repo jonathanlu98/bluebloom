@@ -51,8 +51,12 @@ final class AppModel {
     static var appBuild: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?" }
     // Commit the build came from (BBSourceCommit, stamped by Bazel; "-dirty" for uncommitted changes)
     static var sourceCommit: String { Bundle.main.infoDictionary?["BBSourceCommit"] as? String ?? "unknown" }
-    // "0.1.0 (3, c454205013)": version, build number and source commit, as written to the log and diagnostics
-    static var versionDescription: String { "\(appVersion) (\(appBuild), \(sourceCommit))" }
+    // Built by tools/release.sh (BBBuildKind "release"); everything else, such as tools/install-app.sh, is a local build,
+    // which may include private codec plugins
+    static var isReleaseBuild: Bool { Bundle.main.infoDictionary?["BBBuildKind"] as? String == "release" }
+    // "0.1.0 (5, fa87be74aa)" or "0.1.0 (5, fa87be74aa-dirty, local build)": version, build number and source commit, as written
+    // to the log and diagnostics
+    static var versionDescription: String { "\(appVersion) (\(appBuild), \(sourceCommit)\(isReleaseBuild ? "" : ", local build"))" }
 
     // "Copy Diagnostics" on the About pane, see Diagnostics.summary
     var diagnostics: String { Diagnostics.summary(self) }
