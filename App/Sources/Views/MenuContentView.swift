@@ -78,9 +78,11 @@ extension AppModel {
         case .idle: return String(localized: "\(name) · paused while silent")
         case .connecting: return String(localized: "Connecting to \(name)…")
         case .waitingHeadset: return String(localized: "Waiting for \(name)…")
-        case .retrying: return String(localized: "Reconnecting to \(name)…")
+        case .failed: return String(localized: "Couldn't connect to \(name)")
         case .busy: return String(localized: "\(name) is in use by another device")
         case .system: return String(localized: "\(name) is using macOS Bluetooth audio")
+        case .standby:
+            return device.isConnected ? String(localized: "\(name) is using macOS Bluetooth audio") : String(localized: "\(name) isn't connected")
         default:
             return String(localized: "Ready")
         }
@@ -225,8 +227,8 @@ struct NowPlayingCard: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             }
-            if model.canRetryNow {
-                RetryRow()
+            if model.canConnect {
+                ConnectRow()
             }
             if let configuration = model.configuration, model.isConnected {
                 streamDetails(configuration)
@@ -326,9 +328,10 @@ struct NowPlayingCard: View {
         case .idle: return String(localized: "Connected · paused while silent")
         case .connecting: return String(localized: "Connecting…")
         case .waitingHeadset: return String(localized: "Waiting for the headphones")
-        case .retrying: return String(localized: "Reconnecting…")
+        case .failed: return String(localized: "Couldn't connect")
         case .busy: return String(localized: "In use by another device")
         case .system: return String(localized: "Connected through macOS")
+        case .standby where model.activeDevice?.isConnected == true: return String(localized: "Connected through macOS")
         default: return String(localized: "Not connected")
         }
     }
@@ -342,6 +345,9 @@ struct NowPlayingCard: View {
         // Connected, but the headphones refuse to set up a stream: multipoint headphones are giving their audio to another device
         case .busy:
             return "The headphones are playing from another device, such as your phone. Pause or disconnect it there, then retry."
+        // Waiting for the headphones to connect by themselves: Blue Bloom doesn't connect on its own
+        case .standby where model.activeDevice?.isConnected != true:
+            return "Blue Bloom takes over when the headphones connect to this Mac, for example when you turn them on."
         default:
             return nil
         }
@@ -351,8 +357,9 @@ struct NowPlayingCard: View {
         switch model.status {
         case .streaming: return .green
         case .idle: return .mint
-        case .connecting, .waitingHeadset, .retrying, .busy: return .orange
+        case .connecting, .waitingHeadset, .failed, .busy: return .orange
         case .system: return .blue
+        case .standby where model.activeDevice?.isConnected == true: return .blue
         default: return .gray
         }
     }
@@ -378,24 +385,20 @@ struct BitrateFigure: View {
     }
 }
 
-// Countdown to the next automatic reconnect + Retry Now
-struct RetryRow: View {
+// Connect (or Retry Now after a failed attempt): Blue Bloom never connects or retries on its own
+struct ConnectRow: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         HStack(spacing: 8) {
-            if let next = model.nextAttempt {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let seconds = max(0, Int(next.timeIntervalSince(context.date).rounded(.up)))
-                    Text("Retrying in \(String(seconds)) s")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-            }
             Spacer()
-            Button("Retry Now") { model.retryNow() }
-                .controlSize(.small)
+            if model.status == .standby {
+                Button("Connect") { model.connectNow() }
+                    .controlSize(.small)
+            } else {
+                Button("Retry Now") { model.connectNow() }
+                    .controlSize(.small)
+            }
         }
     }
 }

@@ -1,5 +1,7 @@
-// StreamController: the resident controller. Keeps an A2DP session with one pair of headphones alive: after a session ends (headphones powered off, out of range, failure) it starts a new one a few seconds later;
-// when a session hands the headphones back to macOS as decided by capabilitiesHandler, it stays in LinkStatusSystem and does not reconnect. Shared by the command-line serve and the menu bar app.
+// StreamController: the resident controller for one pair of headphones. Connecting is up to the user (connectNow); otherwise it only waits for the headphones to connect to this Mac by
+// themselves (powered on, or bluetoothd reconnecting after the link dropped) and grabs them then, once each time. It never retries on its own: after an attempt fails it reports why
+// (LinkStatusFailed, LinkStatusBusy, LinkStatusWaitingHeadset) and waits again. When a session hands the headphones back to macOS as decided by capabilitiesHandler, it stays in
+// LinkStatusSystem. Shared by the command-line serve and the menu bar app.
 
 #import <Foundation/Foundation.h>
 #import <IOBluetooth/IOBluetooth.h>
@@ -46,13 +48,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 // virtualDevice: YES fetches sound from the virtual device, NO captures the whole machine's sound with a process tap
 - (instancetype)initWithDevice:(IOBluetoothDevice *)device virtualDevice:(BOOL)virtualDevice;
+// Start waiting for the headphones to connect by themselves (LinkStatusStandby)
 - (void)start;
+// Connect now, at the user's request: page the headphones and take them over (from macOS too, which forces a disconnect); starts the controller if needed.
+// Replaces a session that is waiting or connecting
+- (void)connectNow;
 // End the current session (close the stream, hand the headphones back to macOS), then call completion
 - (void)stopWithCompletion:(nullable dispatch_block_t)completion;
-// Time of the next automatic reconnect (in LinkStatusRetrying, LinkStatusBusy); nil when none is scheduled
-@property (nonatomic, readonly, nullable) NSDate *nextAttempt;
-// Retry now: start immediately while waiting to reconnect; if the session is still waiting for the headphones to answer, end it and start again. Also clears the "headphones busy" backoff
-- (void)retryNow;
 
 @end
 

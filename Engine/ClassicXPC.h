@@ -26,6 +26,10 @@ typedef void (^RFCOMMOpenHandler)(int result, uint16_t mtu, uint16_t service16, 
 // Runs (on the main queue) once check-in is done and the "Bluetooth powered on" state has arrived
 - (void)whenReady:(dispatch_block_t)block;
 - (nullable NSUUID *)lookupAddress:(NSString *)address;
+// bluetoothd's state for the device (kCBMsgArgInternalState in the same lookup, nothing sent over the air): observed 0 while there
+// is no link and 2 while one is up, following the link within about 0.1 s (2026-10-19; IOBluetooth's isConnected lagged 0.5 s and
+// said "not connected" while the link was up); -1 when the lookup fails
+- (int64_t)linkStateForAddress:(NSString *)address;
 - (void)connectDevice:(NSUUID *)device;
 - (void)cancelConnection:(NSUUID *)device;
 - (void)openChannel:(NSUUID *)device psm:(uint16_t)psm handler:(ChannelOpenHandler)handler;

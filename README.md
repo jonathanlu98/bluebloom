@@ -68,6 +68,7 @@ tools/install-app.sh
 ## Usage
 
 - Click the Blue Bloom icon in the menu bar to turn it on or off, pick headphones, and change the codec or quality from the streaming card.
+- Blue Bloom connects when you pick the headphones or click **Connect**, and when the headphones connect to the Mac by themselves, for example when you turn them on. It doesn't connect or retry on its own.
 - **Settings** has General, Codecs, Audio, Devices, Advanced and About.
 - To remove everything, use **Settings › Advanced › Uninstall Blue Bloom…**. It removes the audio device, the login item, settings and log, then moves the app to the Trash.
 

@@ -119,7 +119,7 @@ static void PrintUsage(void) {
            "                                                Stream a test tone or an audio file\n"
            "  bluebloom play <address|name> --system        Stream system-wide audio (Mac speakers muted meanwhile); Ctrl-C to stop\n"
            "  bluebloom play <address|name> --device        Stream the audio the virtual device receives (virtual device driver must be installed first); Ctrl-C to stop\n"
-           "  bluebloom serve <address|name> [--system]     Resident: auto-connect, reconnect on drop, idle suspend; takes audio from the virtual device by default\n"
+           "  bluebloom serve <address|name> [--system]     Resident: connect once, then take the headphones whenever they connect to this Mac by themselves; idle suspend; takes audio from the virtual device by default\n"
            "  bluebloom codectest [--mtu bytes]             Without headphones: encode a 5 s test tone with each codec at each sample rate; report packet size, bitrate, encode time\n"
            "Codec options:\n"
            "  --codec codec-ID                                Prefer this codec (falls back by default priority if the headphones do not support it or it is unavailable)\n"
@@ -335,14 +335,14 @@ int main(int argc, const char *argv[]) {
         }
         CodecOptions *options = OptionsFromArguments(arguments);
         if (serve) {
-            // Resident: reconnect automatically after the headphones disconnect or the session fails; takes audio from the virtual device by default, --system captures system-wide audio instead
+            // Resident: connect once, then take the headphones whenever they connect by themselves (StreamController never retries on its own); takes audio from the virtual device by default, --system captures system-wide audio instead
             StreamController *controller = [[StreamController alloc] initWithDevice:device virtualDevice:![arguments containsObject:@"--system"]];
             controller.optionsProvider = ^CodecOptions *{ return options; };
             signal(SIGINT, SIG_IGN);
             dispatch_source_t interrupt = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGINT, 0, dispatch_get_main_queue());
             dispatch_source_set_event_handler(interrupt, ^{ [controller stopWithCompletion:^{ exit(0); }]; });
             dispatch_resume(interrupt);
-            [controller start];
+            [controller connectNow];
             CFRunLoopRun();
             return 0;
         }

@@ -23,7 +23,6 @@ final class AppModel {
     private(set) var bitrateHistory: [Double] = []
     private(set) var headsetDelay: Double = 0
     // Time of the next automatic reconnect (while waiting to reconnect, or while the headphones are busy)
-    private(set) var nextAttempt: Date?
     private(set) var remoteVolume: Int = -1
     // The AVRCP channel is held by macOS, so volume can't be handed to the headphone amp (software volume stacks on the headphone amp and may be too quiet)
     private(set) var remoteControlBlocked = false
@@ -90,7 +89,8 @@ final class AppModel {
         case .waitingHeadset: return "waiting for headphones"
         case .streaming: return "streaming"
         case .idle: return "idle"
-        case .retrying: return "retrying"
+        case .failed: return "attempt failed"
+        case .standby: return "standby"
         case .stopped: return "stopped"
         case .system: return "handed to macOS"
         case .busy: return "headphones busy"
@@ -125,6 +125,7 @@ final class AppModel {
     @ObservationIgnored private var switchedOutput = false
     @ObservationIgnored private var stopping = false
     @ObservationIgnored private var startAfterStop = false
+    @ObservationIgnored private var connectAfterStop = false
     static let historyLength = 60
 
     init() {
@@ -192,11 +193,14 @@ final class AppModel {
 
     // MARK: Controller
 
-    func startController() {
+    // connect: the user asked to connect (chose the headphones, Connect, Retry): page them and take them over, from macOS too.
+    // Otherwise only wait for the headphones to connect to this Mac by themselves (StreamController never connects on its own)
+    func startController(connect: Bool = false) {
         // Demo/snapshot mode never touches real Bluetooth
         guard !Snapshot.isActive else { return }
         if stopping {
             startAfterStop = true
+            connectAfterStop = connectAfterStop || connect
             return
         }
         // Don't take over the headphones until the first-run notice is accepted, or on an untested macOS until the user agrees; the setup checklist shows matching items
@@ -244,8 +248,8 @@ final class AppModel {
             }
         }
         self.controller = controller
-        BBLogMessage("Enabling: \(device.name ?? address) [\(address)]")
-        controller.start()
+        BBLogMessage("Enabling: \(device.name ?? address) [\(address)]\(connect ? ", connecting" : "")")
+        if connect { controller.connectNow() } else { controller.start() }
     }
 
     // Stopping is asynchronous (closes the stream and releases the headphones; 5–10 s when handing back to macOS): a start requested while stopping waits until the stop finishes;
@@ -269,15 +273,17 @@ final class AppModel {
                 self.stopping = false
                 next?()
                 if self.startAfterStop {
+                    let connect = self.connectAfterStop
                     self.startAfterStop = false
-                    self.startController()
+                    self.connectAfterStop = false
+                    self.startController(connect: connect)
                 }
             }
         }
     }
 
-    func restartController() {
-        stopController { [weak self] in self?.startController() }
+    func restartController(connect: Bool = false) {
+        stopController { [weak self] in self?.startController(connect: connect) }
     }
 
     private func codecOptions(for address: String) -> CodecOptions {
@@ -329,16 +335,15 @@ final class AppModel {
         fallbackCodec = controller?.fallbackCodec
         fallbackReason = controller?.fallbackReason ?? .none
         headsetDelay = controller?.headsetDelayMs ?? 0
-        nextAttempt = controller?.nextAttempt
     }
 
-    // Manual retry while waiting for the headphones or a reconnect: reconnect immediately and clear the "headphones busy" backoff
-    func retryNow() {
-        controller?.retryNow()
-        refreshSessionInfo()
+    // Connect / Retry: the user asks to connect the current headphones now
+    func connectNow() {
+        if let controller { controller.connectNow() } else { startController(connect: true) }
     }
 
-    var canRetryNow: Bool { [.waitingHeadset, .busy, .retrying].contains(status) }
+    // Nothing is connecting: offer to connect (after a failed attempt, to retry)
+    var canConnect: Bool { [.standby, .waitingHeadset, .busy, .failed].contains(status) }
 
     // Every second: bitrate graph, session info, system state
     private func tick() {
@@ -413,11 +418,15 @@ final class AppModel {
     }
 
     func activate(_ device: BluetoothDevice) {
-        guard device.address != settings.activeDevice || controller == nil else { return }
+        // Choosing the current headphones again connects them, if nothing is connecting yet
+        if device.address == settings.activeDevice, controller != nil {
+            if canConnect { connectNow() }
+            return
+        }
         settings.activeDevice = device.address
         if devices.record(device.address).mode == .system { devices.setMode(.automatic, for: device.address) }
         if !settings.enabled { settings.enabled = true }
-        restartController()
+        restartController(connect: true)
     }
 
     func setMode(_ mode: DeviceMode, for address: String) {
@@ -556,9 +565,8 @@ final class AppModel {
 
     // UI state in snapshot mode
     func loadPreview(status: LinkStatus, configuration: CodecConfiguration?, battery: Int, history: [Double], driver: DriverState,
-                     fallback: (CodecID, CodecFallbackReason)? = nil, output: String = "Blue Bloom", retryIn: TimeInterval? = nil,
+                     fallback: (CodecID, CodecFallbackReason)? = nil, output: String = "Blue Bloom",
                      remoteControlBlocked: Bool = false) {
-        nextAttempt = retryIn.map { Date(timeIntervalSinceNow: $0) }
         self.remoteControlBlocked = remoteControlBlocked
         deviceRate = configuration?.sampleRate ?? 0
         deviceBitDepth = 32

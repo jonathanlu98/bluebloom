@@ -95,9 +95,17 @@ enum Snapshot {
         model.loadPreview(status: .waitingHeadset, configuration: nil, battery: -1, history: [], driver: .current)
         render(MenuContentView(), model: model, name: "\(language)-menu-waiting", directory: directory)
 
-        // Scene 6: headphones busy with a phone, retry in 20 seconds
-        model.loadPreview(status: .busy, configuration: nil, battery: -1, history: [], driver: .current, retryIn: 20)
+        // Scene 6: headphones busy with a phone, the user retries
+        model.loadPreview(status: .busy, configuration: nil, battery: -1, history: [], driver: .current)
         render(MenuContentView(), model: model, name: "\(language)-menu-busy", directory: directory)
+
+        // Scene 7: waiting for the headphones to connect by themselves, Connect offered
+        model.loadPreview(status: .standby, configuration: nil, battery: -1, history: [], driver: .current)
+        render(MenuContentView(), model: model, name: "\(language)-menu-standby", directory: directory)
+
+        // Scene 8: the last attempt failed, the user retries
+        model.loadPreview(status: .failed, configuration: nil, battery: -1, history: [], driver: .current)
+        render(MenuContentView(), model: model, name: "\(language)-menu-failed", directory: directory)
 
         // Settings panes
         model.settings.activeDevice = devices[0].address
@@ -151,7 +159,7 @@ enum Snapshot {
             ("connecting", { model.loadPreview(status: .connecting, configuration: nil, battery: -1, history: [], driver: .current) }),
             ("waiting", { model.loadPreview(status: .waitingHeadset, configuration: nil, battery: -1, history: [], driver: .current) }),
             ("streaming", { model.loadPreview(status: .streaming, configuration: ldac, battery: 60, history: history, driver: .current) }),
-            ("busy", { model.loadPreview(status: .busy, configuration: nil, battery: -1, history: [], driver: .current, retryIn: 20) }),
+            ("busy", { model.loadPreview(status: .busy, configuration: nil, battery: -1, history: [], driver: .current) }),
         ]
         var index = 0
         func apply() {

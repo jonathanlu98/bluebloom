@@ -2,6 +2,30 @@
 
 All notable changes to Blue Bloom are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). Versions before 1.0 are pre-releases.
 
+## [0.1.2] - 2026-10-19
+
+### Changed
+
+- Blue Bloom no longer connects to headphones or retries on its own. Choose the headphones in the menu or click Connect to take them over; after a failed attempt, click Retry Now. When Blue Bloom opens or is turned on, it waits.
+- Blue Bloom takes over the headphones when they connect to the Mac by themselves, for example when you turn them on. If it doesn't get them at that moment, they stay with macOS.
+- When macOS is using the headphones, Connect disconnects them first and takes over the new connection.
+- A connection attempt asks the headphones once and gives up after 20 seconds if they don't answer, instead of trying again every 30 seconds for two minutes.
+
+### Fixed
+
+- Headphones connected to macOS, with a player open, could fail to connect: Blue Bloom left connection requests pending that some headphones (KZ AN01) never answer, and setting up the stream then timed out (#2).
+- Blue Bloom sends one connection request at a time, with the audio stream's request first, so macOS takes the headphones' audio less often while Blue Bloom connects.
+- After the headphones are turned off while streaming, Blue Bloom releases the connection they leave open, so turning them on again connects to Blue Bloom instead of macOS.
+- Blue Bloom no longer disconnects headphones that ended the stream themselves.
+- The log is created again if a cleanup app deletes it while Blue Bloom runs.
+
+### Known issues
+
+- The app is not signed with an Apple Developer ID or notarized. macOS blocks it the first time; allow it in System Settings › Privacy & Security. After each update macOS asks for Bluetooth access again.
+- The connection changes in this version were tested on macOS 27 with Focal Bathys headphones only.
+- While Blue Bloom is connected, other apps can't use the headphones' microphone.
+- After Blue Bloom disconnects them, some headphones (observed with Focal Bathys) can't be reached for 20 to 35 seconds.
+
 ## [0.1.1] - 2026-10-17
 
 ### Added
@@ -51,5 +75,6 @@ First public pre-release.
 - While Blue Bloom is connected, other apps can't use the headphones' microphone.
 - After Blue Bloom disconnects them, some headphones (observed with Focal Bathys) can't be reached for 20 to 35 seconds.
 
+[0.1.2]: https://github.com/jonathanlu98/bluebloom/releases/tag/v0.1.2
 [0.1.1]: https://github.com/jonathanlu98/bluebloom/releases/tag/v0.1.1
 [0.1.0]: https://github.com/jonathanlu98/bluebloom/releases/tag/v0.1.0

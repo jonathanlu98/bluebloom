@@ -95,7 +95,8 @@ static xpc_object_t DeviceArgs(NSUUID *device) {
     return args;
 }
 
-- (NSUUID *)lookupAddress:(NSString *)address {
+// bluetoothd's record of a device, looked up by address (answered from its records: nothing is sent over the air)
+- (nullable xpc_object_t)deviceRecordForAddress:(NSString *)address {
     xpc_object_t args = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_string(args, "kCBMsgArgAddressString", address.lowercaseString.UTF8String);
     xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
@@ -110,8 +111,18 @@ static xpc_object_t DeviceArgs(NSUUID *device) {
         free(description);
         return nil;
     }
-    const uint8_t *bytes = xpc_dictionary_get_uuid(devices, "kCBMsgArgDeviceUUID");
+    return devices;
+}
+
+- (NSUUID *)lookupAddress:(NSString *)address {
+    xpc_object_t record = [self deviceRecordForAddress:address];
+    const uint8_t *bytes = record ? xpc_dictionary_get_uuid(record, "kCBMsgArgDeviceUUID") : NULL;
     return bytes ? [[NSUUID alloc] initWithUUIDBytes:bytes] : nil;
+}
+
+- (int64_t)linkStateForAddress:(NSString *)address {
+    xpc_object_t record = [self deviceRecordForAddress:address];
+    return record ? xpc_dictionary_get_int64(record, "kCBMsgArgInternalState") : -1;
 }
 
 - (void)connectDevice:(NSUUID *)device {

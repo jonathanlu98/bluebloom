@@ -62,6 +62,13 @@ static BOOL HasStreams(AudioObjectID device, AudioObjectPropertyScope scope) {
     return [uid hasPrefix:_uidPrefix];
 }
 
+- (BOOL)systemHasHeadphonesDevice {
+    for (NSNumber *device in [self allDevices]) {
+        if ([self isHeadsetDevice:device.unsignedIntValue]) return YES;
+    }
+    return NO;
+}
+
 - (NSString *)describe:(AudioObjectID)device {
     return [NSString stringWithFormat:@"%@ (%@)", DeviceString(device, kAudioObjectPropertyName) ?: @"?",
             DeviceString(device, kAudioDevicePropertyDeviceUID) ?: @"?"];

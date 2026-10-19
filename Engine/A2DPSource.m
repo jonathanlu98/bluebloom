@@ -15,17 +15,38 @@
 
 static const uint8_t kLocalSeid = 1;
 static const double kRequestTimeout = 5;
-// Grabbing the signaling channel: each session has at most one request in flight (overlapping requests on the same
-// session get 1803 "Already connected" from bluetoothd); sessions take turns, one request every 40ms, until we win or time out
+// Grabbing the signaling channel: one request at a time, sent every 40ms from the next free session (overlapping requests on
+// the same session get 1803 "Already connected" from bluetoothd) until we win or time out. Before the link is up a request is
+// refused within about a millisecond (1804), so this costs no reaction time; once the link is up only one request reaches the
+// headphones. More requests in flight on the link only did harm: in every round of the log in GitHub issue #2 (2026-10-18) the
+// first request was answered 40–150 ms before macOS connected AVDTP, and a round failed exactly when a later request was
+// still unanswered at OPEN (the headphones never answered it, nor later requests on that link); requests left in flight across a
+// forced disconnect completed on the next link, after which the headphones ignored our DISCOVER (Bathys, 2026-10-18 22:16:34).
+// A request unanswered this long no longer holds back the next one
 static const NSUInteger kRaceSessions = 6;
 static const double kRaceInterval = 0.04;
+static const double kSignalRequestStuckSeconds = 2;
+// Result of a channel request when there is no link: bluetoothd refuses it itself within about a millisecond, nothing goes over the air
+static const int kNoLinkResult = 1804;
+// A passive round sends a request only when the link was seen down this recently (a request refused with 1804, or bluetoothd's
+// state for the device), so its requests reach the headphones only on a link that has just come up
+static const double kLinkDownFreshSeconds = 0.5;
+// How often a passive round asks bluetoothd about the link while it is up or not yet known to be down
+static const double kLinkPollSeconds = 0.5;
+// The headphones close every channel when powering off but leave the link up (Bathys kept it until switched on again, then
+// reconnected A2DP on it to macOS: 2026-10-19 00:25:58, 00:36:27, 00:43:24). bluetoothd drops such a link 1.45 s after its own
+// services close (00:48:21, macOS holding the headphones), not after ours; release it this long after our session ended
+static const double kLingeringLinkSeconds = 1.5;
+// When the link was already up as a round started, this many consecutive refusals (454) mean macOS holds the signaling channel:
+// give the round up at once instead of after kRoundTimeout (Bathys, 2026-10-18 22:16:27: all 38 requests of such a round were refused)
+static const NSUInteger kHeldRefusalLimit = 3;
 static const double kRoundTimeout = 6;
 static const NSUInteger kRaceRounds = 4;
-static const double kLinkWaitTimeout = 120;
-// For one connection request bluetoothd pages only 3 times (about 5.4 s each, then logs "No pending connection to process";
-// observed 2026-10-15) and then stops looking for the headphones. While waiting for the link, request again at this interval;
-// the ten-plus seconds without paging in between are when the Mac can receive the headphones' own reconnection
-static const double kRepageSeconds = 30;
+// A round asks bluetoothd to connect once: it pages only 3 times (about 5.4 s each, then logs "No pending connection to
+// process"; observed 2026-10-15) and then stops looking for the headphones, so give up after this long. The controller then
+// waits for the headphones to connect by themselves instead of paging again (a page that finds no headphones keeps the radio
+// busy: other headphones' connections waited behind it for a minute on 2026-10-18 21:58)
+static const double kLinkWaitTimeout = 20;
 // When grabbing the HFP channel, this many consecutive 913s (observed: macOS already holds that RFCOMM channel) means this
 // round is lost; stop retrying
 static const NSUInteger kHandsfreeBusyLimit = 5;
@@ -192,7 +213,19 @@ typedef void (^ReplyBlock)(uint8_t messageType, const uint8_t *payload, size_t l
     uint64_t _roundDeadline;
     uint64_t _roundStartTicks;
     uint64_t _linkTicks;            // When this round's link came up (or signaling was grabbed); 0 means not yet
-    uint64_t _pageTicks;            // When bluetoothd was last asked to connect (page)
+    uint64_t _signalRequestTicks;   // When the last signaling request was sent
+    BOOL _linkUpAtRoundStart;
+    BOOL _passiveRound;             // This round waits for the link to come up by itself (waitForLink)
+    BOOL _awaitingLinkDown;         // A passive round has not seen the link down yet (or found it up) and waits for that
+    BOOL _linkStateKnown;
+    uint64_t _linkDownTicks;        // When a passive round last saw the link down
+    uint64_t _linkPollTicks;        // When a passive round last asked bluetoothd about the link
+    uint64_t _lingerTicks;          // When a passive round set to release a lingering link first found it up
+    BOOL _lingerReleased;
+    NSString *_address;             // Bluetooth address with colons, as bluetoothd takes it
+    BOOL _endedByPeer;              // The headphones or the link ended the session (CLOSE/ABORT, a channel closed)
+    BOOL _streamedOnce;
+    NSUInteger _refusalStreak;      // Consecutive 454s for signaling requests in this round
     BOOL _waitHintShown;
     NSUInteger _attempts;
     NSMutableDictionary<NSNumber *, NSNumber *> *_refusals;
@@ -293,6 +326,8 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
 
 - (void)start {
     _wasConnected = _device.isConnected;
+    // A passive session did not bring the link up; when it ends, the headphones stay connected to macOS
+    if (_waitForLink) _wasConnected = YES;
     BBLog(@"Target: %@ [%@], paired=%d, currently connected=%d", _device.name, _device.addressString, _device.isPaired, _wasConnected);
     BBLog(@"Headphones: %@", A2DPDeviceIdentity(_device));
     // Guard the default device first, then build the tap: the tap's aggregate device uses the default output at that moment
@@ -338,6 +373,7 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
 
 - (void)sessionsReady {
     NSString *address = [_device.addressString stringByReplacingOccurrencesOfString:@"-" withString:@":"];
+    _address = address;
     _uuid = [_raceSessions[0] lookupAddress:address];
     BBLog(@"Direct to bluetoothd: %lu+1 sessions checked in, device UUID %@", (unsigned long)kRaceSessions, _uuid.UUIDString ?: @"(not found)");
     if (!_uuid) {
@@ -352,7 +388,11 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
 }
 
 - (void)connect {
-    if (_wasConnected) BBLog(@"Note: the headphones are already connected to this Mac and macOS most likely holds A2DP; if the first round fails, will force a disconnect and reconnect");
+    if (_waitForLink) {
+        BBLog(@"Not requesting a connection: waiting for the headphones to connect to this Mac by themselves");
+    } else if (_wasConnected) {
+        BBLog(@"Note: the headphones are already connected to this Mac and macOS most likely holds A2DP; if the first round fails, will force a disconnect and reconnect");
+    }
     __weak typeof(self) weakSelf = self;
     _raceSessions[0].peerConnectedHandler = ^(NSUUID *device) {
         typeof(self) strongSelf = weakSelf;
@@ -365,31 +405,73 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
     dispatch_source_set_timer(_raceTimer, DISPATCH_TIME_NOW, (uint64_t)(kRaceInterval * NSEC_PER_SEC), NSEC_PER_MSEC);
     dispatch_source_set_event_handler(_raceTimer, ^{ [weakSelf raceTick]; });
     dispatch_resume(_raceTimer);
-    [self startRound];
+    [self startRoundPagingAfter:_waitForLink ? -1 : 0];
 }
 
 // The only chance to grab is while macOS is setting up A2DP (just after the link comes up, or colliding with macOS opening
 // the media channel); once the system's stream is up there is no way in (all 454), so each round is time-limited and on
 // failure we force a disconnect, bring the link up again and retry
 - (void)startRound {
+    [self startRoundPagingAfter:0];
+}
+
+// pageDelay: seconds before asking bluetoothd to connect, negative to wait for the link to come up by itself; grabbing starts
+// right away either way
+- (void)startRoundPagingAfter:(double)pageDelay {
     _round++;
     _state = SourceStateConnecting;
-    // The round timer starts when the link comes up: if the headphones do not answer paging (observed often after a forced
-    // disconnect), keep waiting for them to reconnect on their own; that does not count as failure
+    _passiveRound = pageDelay < 0;
+    _awaitingLinkDown = _passiveRound;
+    _linkStateKnown = NO;
+    // The round timer starts when the link comes up; until then a round that paged gives up after kLinkWaitTimeout, and a
+    // passive round waits without limit
     _roundDeadline = 0;
     _roundStartTicks = mach_absolute_time();
     _linkTicks = 0;
     _waitHintShown = NO;
+    _refusalStreak = 0;
+    _linkUpAtRoundStart = !_passiveRound && _device.isConnected;
+    if (_passiveRound) {
+        [self reportStatus:LinkStatusStandby];
+        return;
+    }
     BBLog(@"Round %lu/%lu: connecting and grabbing the signaling channel", (unsigned long)_round, (unsigned long)kRaceRounds);
     [self reportStatus:LinkStatusConnecting];
-    [_raceSessions[0] connectDevice:_uuid];
-    _pageTicks = _roundStartTicks;
+    if (_round == 1 && pageDelay == 0 && [_raceSessions[0] linkStateForAddress:_address] == 2 && [_audioGuard systemHasHeadphonesDevice]) {
+        // macOS has the headphones' audio on the current link: requests on it only get stuck or bounced, so take the link down
+        // first. AN01 (GitHub issue #2) answered none of them (every request of such a round timed out, and the ones still
+        // pending were carried over to the next link, where they spoiled the stream setup); Bathys refused them, or accepted and
+        // closed them right away (2026-10-19 00:38:52)
+        BBLog(@"macOS has the headphones' audio on the current link, disconnecting it before grabbing");
+        _state = SourceStateReconnecting;
+        [_raceSessions[0] cancelConnection:_uuid];
+        [self startRoundAfterDisconnect:0];
+        return;
+    }
+    if (pageDelay == 0) {
+        [_raceSessions[0] connectDevice:_uuid];
+        return;
+    }
+    NSUInteger round = _round;
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(pageDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        typeof(self) strongSelf = weakSelf;
+        if (!strongSelf || strongSelf->_stopping || strongSelf->_round != round || strongSelf->_state != SourceStateConnecting) return;
+        // If the headphones came back by themselves, a connection request would only add bluetoothd's own round of connections
+        if (strongSelf->_device.isConnected) return;
+        [strongSelf->_raceSessions[0] connectDevice:strongSelf->_uuid];
+    });
 }
 
 - (void)restartRound:(NSString *)reason {
     if (_round >= kRaceRounds) {
         [self stopWithReason:[NSString stringWithFormat:@"No usable signaling channel in %lu rounds (last round: %@; %lu requests in total, refusals %@)",
                               (unsigned long)_round, reason, (unsigned long)_attempts, _refusals] exitCode:2];
+        return;
+    }
+    if (_waitForLink) {
+        // Grabbing by itself only takes the chance the headphones' own connection gives: no forced disconnect, no paging
+        [self stopWithReason:[NSString stringWithFormat:@"Not grabbed when the headphones connected (%@), leaving them to macOS", reason] exitCode:2];
         return;
     }
     BBLog(@"Round %lu failed (%@), forcing a disconnect and retrying", (unsigned long)_round, reason);
@@ -406,14 +488,19 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ [self startRoundAfterDisconnect:checks + 1]; });
         return;
     }
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        if (!self->_stopping) [self startRound];
-    });
+    // Grab again as soon as the link is down and page a second later: the link often comes back by itself within a few hundred
+    // ms (bluetoothd reconnects; Bathys, 2026-10-18 22:16:34: back 330 ms after the forced disconnect, when we were still
+    // waiting to start the next round)
+    [self startRoundPagingAfter:1];
 }
 
 - (void)linkReady:(NSString *)reason {
-    if (_state != SourceStateConnecting) return;
+    if (_state != SourceStateConnecting || _awaitingLinkDown) return;
     _state = SourceStateRacing;
+    if (_passiveRound) {
+        BBLog(@"Round %lu/%lu: the headphones connected to this Mac, grabbing the signaling channel", (unsigned long)_round, (unsigned long)kRaceRounds);
+        [self reportStatus:LinkStatusConnecting];
+    }
     _linkTicks = mach_absolute_time();
     _roundDeadline = _linkTicks + BBSecondsToTicks(kRoundTimeout);
     BBLog(@"Link is up (%@)", reason);
@@ -428,8 +515,8 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
     return 0;
 }
 
-// macOS connects HFP about 1 s after SDP completes (observed "Attempting to connect handsfree"); like the signaling grab,
-// we start requesting without waiting for the link to come up.
+// macOS connects HFP about 1 s after SDP completes (observed "Attempting to connect handsfree"); we request it as soon as
+// the link is up, right behind the signaling request (raceTick).
 // Between grabbing signaling and the media channel opening (configure, OPEN, open media channel): send no new HFP requests,
 // so the headphones handle one thing at a time; the AVRCP channel is the exception and is still grabbed within
 // kAvrcpSetupWindow (the headphones stop accepting it once the media channel is open; this is exactly when we are waiting to
@@ -605,37 +692,110 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
     _avrcpBusyStreak = 0;
 }
 
+// Signaling alone first: requests made together right after the link comes up go out to the headphones one after another, in
+// no fixed order (going by bluetoothd's security check of each channel), while macOS's own requests (made when SDP
+// completes, 115–410 ms after the link comes up) go out at once. Bathys, 2026-10-18: HFP, AVRCP and signaling requests made at
+// +18 ms went out at +18, +91 and +199 ms (22:55:34); signaling, AVRCP and HFP made at +6 ms went out AVRCP first and signaling
+// at +133 ms (22:59:21); both times macOS's AVDTP request was accepted and ours refused. So until the link is known to be up,
+// request only the signaling channel; a signaling request still unanswered a tick later means the link is up and it is first in
+// line, and the AVRCP and HFP requests follow it (macOS connects HFP about 1 s after SDP)
 - (void)raceTick {
-    [self handsfreeTick];
+    // Checked before this tick's signaling request, which would otherwise always look in flight
+    BOOL linkUnknown = _state == SourceStateConnecting;
+    BOOL signalOnLink = NO;
+    for (ClassicSession *session in _raceSessions) {
+        if (session.openInFlight) signalOnLink = YES;
+    }
+    [self signalTick];
+    if (linkUnknown && !signalOnLink) return;
     [self avrcpTick];
+    [self handsfreeTick];
+}
+
+// Whether a passive round may send a request now: only when the link was just seen down, so a request reaches the headphones
+// only on a link that has come up since. Never on a link that is already up: taking the headphones from macOS needs a forced
+// disconnect, which only the user asks for, and even probing is not harmless (Bathys, 2026-10-19 00:38:52: with macOS holding
+// A2DP it accepted our signaling channel and closed it 90 ms later instead of refusing it as at 00:29:33; probed about 10 times
+// in 7 s it stopped answering and the link timed out). The link state comes from bluetoothd: IOBluetooth's isConnected said "not
+// connected" while the link was up (00:43:24) and set that loop off
+- (BOOL)passiveMaySend {
+    uint64_t now = mach_absolute_time();
+    if (!_awaitingLinkDown && now - _linkDownTicks < BBSecondsToTicks(kLinkDownFreshSeconds)) return YES;
+    // A request sent while the link was down and still unanswered: bluetoothd holds it while the headphones' connection is set
+    // up, so the link coming up now is the one it rides (2026-10-19 01:13:31: no 1804 for 0.5 s as the headphones connected, and
+    // the new link was taken for an existing one)
+    if (!_awaitingLinkDown) {
+        for (ClassicSession *session in _raceSessions) {
+            if (session.openInFlight) return YES;
+        }
+    }
+    if (now - _linkPollTicks < BBSecondsToTicks(kLinkPollSeconds)) return NO;
+    _linkPollTicks = now;
+    int64_t state = [_raceSessions[0] linkStateForAddress:_address];
+    if (state != 0) {
+        if (!_awaitingLinkDown || !_linkStateKnown) {
+            BBLog(@"The headphones are connected to this Mac (bluetoothd state %lld), leaving that link alone until it goes down", state);
+        }
+        _awaitingLinkDown = YES;
+        _linkStateKnown = YES;
+        [self releaseLingeringLinkIfIdle:now];
+        return NO;
+    }
+    if (_awaitingLinkDown && _linkStateKnown) BBLog(@"The link to the headphones went down, waiting for them to connect again");
+    _awaitingLinkDown = NO;
+    _linkStateKnown = YES;
+    _linkDownTicks = now;
+    return YES;
+}
+
+// After the headphones closed every channel of ours (the last session's headphonesLeft), their link may linger: release it once,
+// unless macOS has their audio (they may have reconnected to it meanwhile)
+- (void)releaseLingeringLinkIfIdle:(uint64_t)now {
+    if (!_releaseLingeringLink || _lingerReleased) return;
+    if (!_lingerTicks) _lingerTicks = now;
+    if (now - _lingerTicks < BBSecondsToTicks(kLingeringLinkSeconds)) return;
+    _lingerReleased = YES;
+    if ([_audioGuard systemHasHeadphonesDevice]) {
+        BBLog(@"The headphones' link is still up but macOS has their audio now, leaving it");
+        return;
+    }
+    BBLog(@"The headphones closed every channel but their link is still up (as when they power off), releasing it");
+    [_raceSessions[0] cancelConnection:_uuid];
+}
+
+- (void)signalTick {
     // Start requesting without waiting for the link: macOS connects AVDTP right after SDP completes (observed about 20ms
     // before isConnected turns true), so waiting for the link is too late; requests before the link is up just fail, at little cost
-    if (_state == SourceStateConnecting && _device.isConnected) [self linkReady:@"polling"];
+    if (_passiveRound && _state == SourceStateConnecting) {
+        if (![self passiveMaySend]) return;
+    } else if (_state == SourceStateConnecting && _device.isConnected) {
+        [self linkReady:@"polling"];
+    }
     if (_state != SourceStateConnecting && _state != SourceStateRacing) return;
     if (_roundDeadline && mach_absolute_time() > _roundDeadline) {
         [self restartRound:[NSString stringWithFormat:@"not grabbed within %.0f s after the link came up", kRoundTimeout]];
         return;
     }
     double waited = BBTicksToSeconds(mach_absolute_time() - _roundStartTicks);
-    if (_state == SourceStateConnecting && waited > 8 && !_waitHintShown) {
+    if (_state == SourceStateConnecting && !_passiveRound && waited > 8 && !_waitHintShown) {
         _waitHintShown = YES;
         [self reportStatus:LinkStatusWaitingHeadset];
         BBLog(@"The headphones did not answer the connection (page timeout): they may be off, or connected to another device such as a phone "
               @"(they do not accept the Mac when single-point, or when multipoint is full). Disconnect on that device, or turn the "
               @"headphones off and on again; when they reconnect to this Mac the tool will grab the channels at that moment");
     }
-    if (_state == SourceStateConnecting && waited > kLinkWaitTimeout) {
+    if (_state == SourceStateConnecting && !_passiveRound && waited > kLinkWaitTimeout) {
         [self stopWithReason:[NSString stringWithFormat:@"The headphones did not connect within %.0f s", kLinkWaitTimeout] exitCode:2];
         return;
     }
-    if (_state == SourceStateConnecting && BBTicksToSeconds(mach_absolute_time() - _pageTicks) > kRepageSeconds) {
-        _pageTicks = mach_absolute_time();
-        BBLog(@"The headphones are still not connected, requesting a connection again (waited %.0f s)", waited);
-        [_raceSessions[0] connectDevice:_uuid];
+    uint64_t now = mach_absolute_time();
+    for (ClassicSession *session in _raceSessions) {
+        if (session.openInFlight && now - _signalRequestTicks < BBSecondsToTicks(kSignalRequestStuckSeconds)) return;
     }
     for (ClassicSession *session in _raceSessions) {
         if (!session.ready || session.openInFlight) continue;
         _attempts++;
+        _signalRequestTicks = now;
         __weak typeof(self) weakSelf = self;
         __weak ClassicSession *weakSession = session;
         [session openChannel:_uuid psm:kAVDTPPSM handler:^(int result, uint16_t cid, uint16_t outMTU, int fd) {
@@ -649,6 +809,14 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
     if (result != 0) {
         // 454 = OI_L2CAP_CONNECT_REFUSED_NO_RESOURCES (AOSP embdrv/sbc/decoder/include/oi_status.h L133): the headphones already have a signaling channel
         _refusals[@(result)] = @(_refusals[@(result)].integerValue + 1);
+        _refusalStreak = result == 454 ? _refusalStreak + 1 : 0;
+        if (result == kNoLinkResult) _linkDownTicks = mach_absolute_time();
+        // Any other answer means the link is up: in a passive round it has just come up (see passiveMaySend)
+        else if (_passiveRound && _state == SourceStateConnecting && !_stopping) [self linkReady:@"the headphones answered a request"];
+        if (_refusalStreak >= kHeldRefusalLimit && _linkUpAtRoundStart && _state == SourceStateRacing && !_stopping) {
+            [self restartRound:[NSString stringWithFormat:@"%lu consecutive refusals on a link that was already up, macOS holds the signaling channel",
+                                (unsigned long)_refusalStreak]];
+        }
         return;
     }
     if ((_state != SourceStateRacing && _state != SourceStateConnecting) || _stopping) {
@@ -668,11 +836,13 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
     _signal.packetHandler = ^(NSData *packet) { [weakSelf signalReceived:packet]; };
     _signal.closedHandler = ^{
         typeof(self) strongSelf = weakSelf;
-        if (strongSelf && strongSelf->_state == SourceStateSignalReady && strongSelf->_endpoints.count == 0) {
+        if (!strongSelf) return;
+        if (strongSelf->_state == SourceStateSignalReady && strongSelf->_endpoints.count == 0) {
             [strongSelf abandonSignal:@"channel closed before DISCOVER"];
-        } else {
-            [weakSelf stopWithReason:@"Signaling channel closed by the peer or macOS" exitCode:5];
+            return;
         }
+        strongSelf->_endedByPeer = YES;
+        [strongSelf stopWithReason:@"Signaling channel closed by the peer or macOS" exitCode:5];
     };
     _state = SourceStateSignalReady;
     [self discover];
@@ -898,6 +1068,7 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
                 reply(kMsgAccept, NULL, 0);
                 break;
             }
+            _endedByPeer = YES;
             [self stopWithReason:[NSString stringWithFormat:@"Headphones sent %@", SignalName(signal)] exitCode:SourceExitHeadsetBusy];
             break;
         case kSigSetConfiguration:
@@ -1396,7 +1567,12 @@ static const double kQuietPollInterval = 0.02;
     BBLog(@"Media channel open: CID 0x%04X, outgoing MTU %u, %@", cid, mtu, [_media describeType]);
     __weak typeof(self) weakSelf = self;
     _media.packetHandler = ^(NSData *packet) { BBLog(@"Media channel received %lu bytes (ignored)", (unsigned long)packet.length); };
-    _media.closedHandler = ^{ [weakSelf stopWithReason:@"Media channel closed by the peer or macOS" exitCode:5]; };
+    _media.closedHandler = ^{
+        typeof(self) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        strongSelf->_endedByPeer = YES;
+        [strongSelf stopWithReason:@"Media channel closed by the peer or macOS" exitCode:5];
+    };
     _state = SourceStateMediaReady;
     [self sendStart];
 }
@@ -1415,6 +1591,7 @@ static const double kQuietPollInterval = 0.02;
 
 - (void)beginStreaming {
     _state = SourceStateStreaming;
+    _streamedOnce = YES;
     if (!_streamer) {
         id<PCMSource> source = nil;
         if (_systemAudio) {
@@ -1775,6 +1952,8 @@ static const double kQuietPollInterval = 0.02;
 - (void)teardown {
     if (_tornDown) return;
     _tornDown = YES;
+    // The headphones closed the stream and every other channel of ours while it was established (as when they power off)
+    _headphonesLeft = _endedByPeer && _streamedOnce && !_gateway && !_avrcp;
     _pendingReply = nil;
     [_pairing stop];
     _pairing = nil;
@@ -1786,9 +1965,10 @@ static const double kQuietPollInterval = 0.02;
         [self resetAvrcp];
         if (_media) [_mediaSession closeChannel:_uuid psm:kAVDTPPSM];
         if (_signalSession) [_signalSession closeChannel:_uuid psm:kAVDTPPSM];
-        if ((!_wasConnected || _handToSystem) && _raceSessions.count) {
+        if ((!_wasConnected || _handToSystem) && !_endedByPeer && _raceSessions.count) {
             // A forced disconnect also drops all of macOS's services on this device; do it only when we initiated the
-            // connection, or when handing the headphones back to macOS
+            // connection, or when handing the headphones back to macOS. Not when the headphones ended the session themselves
+            // (powering off, switching to another device): the link is theirs to keep or drop
             [_raceSessions[0] cancelConnection:_uuid];
             BBLog(@"Requested baseband disconnect");
         }

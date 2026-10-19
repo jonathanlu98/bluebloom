@@ -22,7 +22,7 @@ enum LogFile {
             try? manager.moveItem(at: url, to: previousURL)
         }
         if !manager.fileExists(atPath: url.path) { manager.createFile(atPath: url.path, contents: nil) }
-        guard let handle = try? FileHandle(forWritingTo: url) else { return }
+        guard var handle = try? FileHandle(forWritingTo: url) else { return }
         handle.seekToEndOfFile()
         let queue = DispatchQueue(label: "bluebloom.log")
         let formatter = DateFormatter()
@@ -30,7 +30,17 @@ enum LogFile {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         BBLogSetSink { line in
             let stamped = "\(formatter.string(from: Date())) \(line)\n"
-            queue.async { handle.write(Data(stamped.utf8)) }
+            queue.async {
+                // A cleanup tool may delete the log while the app runs (observed: ~/Library/Logs emptied); the lines would then go
+                // to the deleted file and be missing from the diagnostics, so start a new file
+                var status = stat()
+                if fstat(handle.fileDescriptor, &status) == 0, status.st_nlink == 0,
+                   FileManager.default.createFile(atPath: url.path, contents: nil), let reopened = try? FileHandle(forWritingTo: url) {
+                    try? handle.close()
+                    handle = reopened
+                }
+                handle.write(Data(stamped.utf8))
+            }
         }
     }
 }

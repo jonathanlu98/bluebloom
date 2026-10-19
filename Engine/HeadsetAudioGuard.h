@@ -16,6 +16,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithAddress:(NSString *)address;
 - (void)start;
 - (void)stop;
+// Whether coreaudiod has a device for these headphones: macOS holds their A2DP ("<address>-tacl") or HFP audio
+- (BOOL)systemHasHeadphonesDevice;
 
 @end
 

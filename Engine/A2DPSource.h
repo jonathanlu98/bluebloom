@@ -16,13 +16,14 @@ typedef NS_ENUM(NSInteger, SourceMode) {
 
 typedef NS_ENUM(NSInteger, LinkStatus) {
     LinkStatusConnecting,      // Connecting, grabbing channels
-    LinkStatusWaitingHeadset,  // Headphones do not answer paging; waiting for them to power on and connect back
+    LinkStatusWaitingHeadset,  // Headphones do not answer paging (during an attempt the user asked for)
     LinkStatusStreaming,       // Streaming
     LinkStatusIdle,            // Connected, in idle suspend
-    LinkStatusRetrying,        // Session ended, reconnecting later (StreamController)
+    LinkStatusFailed,          // The last attempt failed; the user retries it (StreamController)
     LinkStatusStopped,         // Disabled (StreamController)
     LinkStatusSystem,          // Headphones left for macOS to connect (in auto mode our codec is no better than the system's) (StreamController)
-    LinkStatusBusy,            // Headphones refuse to open a stream: multipoint headphones are giving audio to another device; retry later (StreamController)
+    LinkStatusBusy,            // Headphones refuse to open a stream: multipoint headphones are giving audio to another device; the user retries (StreamController)
+    LinkStatusStandby,         // Nothing requested: waiting for the headphones to connect to this Mac by themselves (see waitForLink)
 };
 
 // Why the most preferred codec was not used
@@ -39,7 +40,8 @@ typedef NS_ENUM(NSInteger, CodecFallbackReason) {
 enum {
     SourceExitHandedToSystem = 10,  // Headphones handed back to macOS as decided by takeoverDecider
     // Headphones refused to open a stream or took it back (endpoint stays busy, OPEN/START refused, headphones sent CLOSE/ABORT while streaming):
-    // multipoint headphones are giving audio to another device (observed 2026-10-13, WH-1000XM4 also connected to an iPhone). The controller lengthens the reconnect interval
+    // multipoint headphones are giving audio to another device (observed 2026-10-13, WH-1000XM4 also connected to an iPhone). The controller reports it (LinkStatusBusy)
+    // unless the session had been streaming (then the headphones were powered off or switched away)
     SourceExitHeadsetBusy = 11,
     SourceExitRetryNow = 12,        // User clicked "Retry Now": end the current session and start a new one immediately
 };
@@ -58,6 +60,18 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device);
 @property (nonatomic) BOOL useVirtualDevice;
 // Codec options; while streaming use updateOptions: instead
 @property (nonatomic, copy) CodecOptions *options;
+// YES: don't ask bluetoothd to connect, wait until the link comes up by itself (the headphones power on and connect to this Mac,
+// or bluetoothd reconnects after the link dropped) and grab the channels then; a link that is already up is left alone until
+// it goes down. Only that one round: if the grab fails the session ends without forcing a disconnect or paging, and the
+// headphones stay connected to macOS. (Bathys keeps the link through a power cycle and reconnects A2DP on it to macOS; the
+// user takes it over with connectNow)
+@property (nonatomic) BOOL waitForLink;
+// With waitForLink: if the link is up when the session starts, release it once (unless macOS has the headphones' audio); set
+// after a session whose headphones left (headphonesLeft), since bluetoothd keeps that link up
+@property (nonatomic) BOOL releaseLingeringLink;
+// After the session ended: the headphones closed the stream and every other channel of ours while it was established, as when
+// they power off
+@property (nonatomic, readonly) BOOL headphonesLeft;
 // Change options while streaming (e.g. the user switched codec): if the chosen codec or its parameters change, close the stream and reconfigure without disconnecting the headphones
 - (void)updateOptions:(CodecOptions *)options;
 // Desired sample rate (the source track's sample rate or a value fixed by the user); 0 means use the capture source's current sample rate.
