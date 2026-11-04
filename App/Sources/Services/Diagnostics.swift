@@ -1,7 +1,7 @@
 // Diagnostics for bug reports, from the About pane:
-//   - "Copy Diagnostics": a text summary (build, system, settings, audio, connection, remembered headphones with their
-//     Device ID record and the codec capability bytes they declared). It has no device names or addresses, so it can be
-//     pasted into a public issue as is.
+//   - "Copy Diagnostics": a text summary (build, system, settings, audio, connection, Wi-Fi, remembered headphones with
+//     their Device ID record and the codec capability bytes they declared). It has no device or network names or addresses,
+//     so it can be pasted into a public issue as is.
 //   - "Export Diagnostics…": a zip on the Desktop with that summary, Blue Bloom's logs (current and previous), the
 //     Bluetooth section of System Information and the last two hours of the macOS Bluetooth daemon's connection log. The
 //     daemon's log shows what the headphones themselves answered (connection refusals, macOS's own connection attempts),
@@ -10,6 +10,7 @@
 // becomes "~". Device names stay in the logs because they tell which headphone model it is.
 import AppKit
 import BlueBloomEngine
+import CoreWLAN
 import IOBluetooth
 
 @MainActor
@@ -65,6 +66,10 @@ enum Diagnostics {
         lines.append("AVRCP: \(avrcp)")
         if model.battery >= 0 { lines.append("battery: \(model.battery)%") }
 
+        section("Wi-Fi")
+        lines += wirelessState()
+        lines.append("AirDrop/AirPlay pause while streaming: \(settings.awdlSuppress), AWDL guard helper installed: \(AwdlGuard.helperInstalled)")
+
         section("Headphones")
         let records = model.devices.records.sorted { ($0.value.lastSeen ?? .distantPast) > ($1.value.lastSeen ?? .distantPast) }
         if records.isEmpty { lines.append("none remembered") }
@@ -87,6 +92,59 @@ enum Diagnostics {
             }
         }
         return lines.joined(separator: "\n")
+    }
+
+    // Wi-Fi and Bluetooth share one radio on many Macs (Apple N1 among them): Wi-Fi scans while it isn't connected and
+    // peer-to-peer activity (AWDL: AirDrop, AirPlay, Sidecar) take airtime from the stream (GitHub issue #4). Only states,
+    // the band and the channel width: no network name, address or channel number, which could help tell the network apart
+    private static func wirelessState() -> [String] {
+        var lines: [String] = []
+        if let interface = CWWiFiClient.shared().interface() {
+            if !interface.powerOn() {
+                lines.append("Wi-Fi: off")
+            } else if interface.activePHYMode() == .modeNone {
+                lines.append("Wi-Fi: on, not connected to a network")
+            } else if let channel = interface.wlanChannel() {
+                lines.append("Wi-Fi: on, connected, \(bandName(channel.channelBand)), \(widthName(channel.channelWidth)) channel")
+            } else {
+                lines.append("Wi-Fi: on, connected")
+            }
+        } else {
+            lines.append("Wi-Fi: no interface")
+        }
+        let awdl = interfaceUp("awdl0").map { $0 ? "up" : "down" } ?? "missing"
+        lines.append("AWDL interface (awdl0): \(awdl)")
+        return lines
+    }
+
+    private static func bandName(_ band: CWChannelBand) -> String {
+        switch band {
+        case .band2GHz: return "2.4 GHz"
+        case .band5GHz: return "5 GHz"
+        case .band6GHz: return "6 GHz"
+        default: return "unknown band"
+        }
+    }
+
+    private static func widthName(_ width: CWChannelWidth) -> String {
+        switch width {
+        case .width20MHz: return "20 MHz"
+        case .width40MHz: return "40 MHz"
+        case .width80MHz: return "80 MHz"
+        case .width160MHz: return "160 MHz"
+        default: return "unknown width"
+        }
+    }
+
+    // Whether a network interface is up; nil when there is no such interface
+    private static func interfaceUp(_ name: String) -> Bool? {
+        var list: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&list) == 0, let first = list else { return nil }
+        defer { freeifaddrs(list) }
+        for entry in sequence(first: first, next: { $0.pointee.ifa_next }) where String(cString: entry.pointee.ifa_name) == name {
+            return Int32(entry.pointee.ifa_flags) & IFF_UP != 0
+        }
+        return nil
     }
 
     private static func hex(_ data: Data) -> String {

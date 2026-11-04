@@ -268,7 +268,7 @@ struct AudioPane: View {
                 }
                 // Only with the separate AWDL guard helper installed (see AwdlGuard)
                 if AwdlGuard.helperInstalled {
-                    Toggle(isOn: Binding(get: { settings.awdlSuppress }, set: { settings.awdlSuppress = $0 })) {
+                    Toggle(isOn: Binding(get: { settings.awdlSuppress }, set: { settings.awdlSuppress = $0; model.applyAwdlSuppress() })) {
                         Text("Pause AirDrop and AirPlay discovery while streaming")
                         Text("Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.")
                     }

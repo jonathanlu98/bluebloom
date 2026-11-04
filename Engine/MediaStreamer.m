@@ -22,8 +22,10 @@ static const double kMaxLagSeconds = 0.3;
 // If nothing can be written into the media channel for this long, it counts as stuck: the headphones stopped accepting (observed 2026-10-13 23:57: some headphones' audio path locks up after a frame longer than their limit,
 // the send buffer stays full, not one packet goes out over the next 70 seconds, and switching back to small frames does not recover it); the stream will not heal on its own
 static const double kStallSeconds = 3;
-// For this long after the stream opens or resumes from pause, report no queue depth: the capture buffer backlog is left over from the pause (observed 9 packets backlogged at the moment of resume), not a slow link;
-// reporting it to adaptive bitrate would make it wrongly drop a tier and also lock out the tier it just tried (2026-10-14 00:41:05)
+// For this long after the stream opens or resumes from pause, report no queue depth: what queues up then is not a slow link. The
+// capture backlog from the pause is dropped at START (SystemAudioSource dropBacklog; before that, 9 packets were seen backlogged
+// at the moment of resume), but headphones only start consuming a while after START (Bathys: writes block until about 0.53 s).
+// Reporting it to adaptive bitrate would make it wrongly drop a tier and also lock out the tier it just tried (2026-10-14 00:41:05)
 static const double kDepthWarmupSeconds = 1;
 
 @implementation MediaStreamer {

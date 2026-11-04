@@ -322,9 +322,15 @@ final class AppModel {
         // -1 when the engine has no battery level (HFP not held by Blue Bloom, session reconnecting); the UI then uses the one recorded by the system
         self.battery = battery
         refreshSessionInfo()
-        AwdlGuard.update(suppress: settings.awdlSuppress && status == .streaming)
+        applyAwdlSuppress()
         updateOutputRouting(previous: previous)
         publishBattery()
+    }
+
+    // AirDrop/AirPlay discovery is paused only while streaming; also called when the setting changes, so turning it off resumes them
+    // at once instead of at the next status change
+    func applyAwdlSuppress() {
+        AwdlGuard.update(suppress: settings.awdlSuppress && status == .streaming)
     }
 
     // While Blue Bloom holds HFP the system gets no battery level: publish what the gateway received to the system; while macOS holds HFP the gateway has no value and the system publishes it itself

@@ -2,6 +2,24 @@
 
 All notable changes to Blue Bloom are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). Versions before 1.0 are pre-releases.
 
+## [0.1.4] - 2026-11-04
+
+### Fixed
+
+- When sound starts after a pause (Blue Bloom suspends the stream after 10 seconds of silence), the stream now starts from the newest sound. Before, the sound from just before the stream started was sent at once, and some headphones then skipped about 0.2 seconds half a second in (Focal Bathys, five times out of six); with LDAC, adaptive bitrate could also drop two tiers right at the start. Thanks to SugarMGP for finding this (#6).
+- Turning "Pause AirDrop and AirPlay discovery while streaming" on or off now takes effect at once, also while streaming. Before, AirDrop could stay unavailable after turning it off. The setting is only shown when the separate AWDL guard helper is installed.
+
+### Changed
+
+- Diagnostics now say whether Wi-Fi is on and connected, its band and channel width, and whether the AWDL interface (AirDrop, AirPlay) is up. They contain no network names or addresses.
+
+### Known issues
+
+- The app is not signed with an Apple Developer ID or notarized. macOS blocks it the first time; allow it in System Settings › Privacy & Security. After each update macOS asks for Bluetooth access again.
+- The connection changes in 0.1.3 were tested on macOS 27 with Focal Bathys headphones only.
+- While Blue Bloom is connected, other apps can't use the headphones' microphone.
+- After Blue Bloom disconnects them, some headphones (observed with Focal Bathys) can't be reached for 20 to 35 seconds.
+
 ## [0.1.3] - 2026-11-04
 
 This version updates the Blue Bloom audio device. Blue Bloom asks to update it after you open the new version, which needs an administrator password.

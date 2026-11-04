@@ -303,6 +303,23 @@ static NSString *StatusText(OSStatus status) {
     if (head - tail > keep) atomic_store_explicit(&_read, head - keep, memory_order_release);
 }
 
+// The capture keeps running while nothing streams, so at START the buffer holds sound from before it (up to the 125 ms that
+// keepRecentOnly keeps plus a 200 ms idle tick, and the START round trip). Sending that at once overfills the headphones before
+// they start playing, and the stream then loses more than it kept (GitHub PR #6 by SugarMGP; measured with Focal Bathys and
+// aptX Adaptive on 2026-11-04, resuming from idle six times each):
+//   - the Bathys takes about 0.35-0.4 s of audio after START and starts consuming it only about 0.53 s after START; until
+//     then writes block;
+//   - keeping the backlog (139-168 ms): writes blocked for 194-351 ms, the buffer went over kMaxQueueSeconds and
+//     availableFrames dropped about 180 ms of audio half a second into the sound, in five resumes out of six;
+//   - dropping it: writes blocked for 134-197 ms, the buffer peaked at 117-181 ms and nothing was dropped.
+// The sound captured before START is not played then (it is the onset that set off the resume), but the rest plays without a
+// gap. It also keeps the backlog away from adaptive bitrate: with LDAC (QCY MeloBuds Pro) it was still draining when the
+// queue depth warm-up ended, and two tiers were dropped before the link had carried any audio
+- (void)dropBacklog {
+    uint64_t head = atomic_load_explicit(&_written, memory_order_acquire);
+    atomic_store_explicit(&_read, head, memory_order_release);
+}
+
 - (size_t)read:(uint8_t *)output frames:(size_t)frames {
     uint64_t head = atomic_load_explicit(&_written, memory_order_acquire);
     uint64_t tail = atomic_load_explicit(&_read, memory_order_relaxed);

@@ -28,8 +28,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)setDeviceSampleRate:(double)rate;
 - (BOOL)start:(NSString *_Nullable *_Nullable)error;
 - (void)stop;
-// Called periodically while streaming is paused: drops old data and keeps only a short recent stretch (not counted as dropped), used as the leading pre-roll on resume
+// Called periodically while streaming is paused: drops old data and keeps only a short recent stretch (not counted as dropped), so the buffer stays small until the stream resumes
 - (void)keepRecentOnly;
+// Discards everything captured so far (not counted as dropped); called when a stream starts or resumes, see the implementation
+- (void)dropBacklog;
 
 @end
 
