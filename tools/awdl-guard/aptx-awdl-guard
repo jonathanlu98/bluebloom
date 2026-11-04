@@ -1,0 +1,49 @@
+#!/bin/sh
+# aptx-awdl-guard: turn Apple Wireless Direct Link off while Blue Bloom streams.
+#
+# AWDL is the peer-to-peer radio behind AirDrop, AirPlay discovery, Handoff and Continuity. On Macs that share one radio
+# for Wi-Fi and Bluetooth it keeps hopping channels and truncating Bluetooth slots, which shows up as dropouts and as a
+# link that cannot hold the higher LDAC tiers.
+#
+# Contract with the app (App/Sources/Services/Services.swift, enum AwdlGuard — do not change either path):
+#   - the app creates /Users/Shared/.aptx-awdl-suppress while "pause AirDrop and AirPlay" is on and it is streaming,
+#     and removes it when streaming stops, the app quits, or it is uninstalled;
+#   - the helper itself is expected at /usr/local/libexec/aptx-awdl-guard, which is how the app decides whether to
+#     enable the switch in Settings.
+#
+# Run by launchd as root (app.bluebloom.awdl-guard.plist): on load, whenever the flag file appears or disappears, and
+# once per StartInterval as a safety net. The state is derived from the flag file alone, so running twice is harmless.
+# Only awdl0 is touched; running it when the interface is already in the wanted state does nothing.
+
+FLAG=/Users/Shared/.aptx-awdl-suppress
+IFACE=awdl0
+IFCONFIG=/sbin/ifconfig
+LOGGER=/usr/bin/logger
+
+# Set AWDL_GUARD_DRY_RUN=1 to see what would happen without changing the interface
+DRY_RUN=${AWDL_GUARD_DRY_RUN:-0}
+
+is_up() {
+    "$IFCONFIG" "$IFACE" 2>/dev/null | /usr/bin/sed -n '1s/.*<\([^>]*\)>.*/\1/p' | /usr/bin/tr ',' '\n' | /usr/bin/grep -qx UP
+}
+
+if [ "$1" = "--status" ]; then
+    if [ -e "$FLAG" ]; then echo "flag:    present (AWDL is kept down)"; else echo "flag:    absent (AWDL runs normally)"; fi
+    if is_up; then echo "$IFACE:   up"; else echo "$IFACE:   down"; fi
+    exit 0
+fi
+
+if [ "$(id -u)" != 0 ] && [ "$DRY_RUN" != 1 ]; then
+    echo "aptx-awdl-guard changes awdl0 and must run as root; install it with: sudo tools/awdl-guard/install.sh" >&2
+    exit 1
+fi
+
+if [ -e "$FLAG" ]; then
+    if is_up; then
+        if [ "$DRY_RUN" = 1 ]; then echo "would run: $IFCONFIG $IFACE down"; else "$IFCONFIG" "$IFACE" down && "$LOGGER" -t aptx-awdl-guard "AWDL down: Blue Bloom is streaming"; fi
+    fi
+else
+    if ! is_up; then
+        if [ "$DRY_RUN" = 1 ]; then echo "would run: $IFCONFIG $IFACE up"; else "$IFCONFIG" "$IFACE" up && "$LOGGER" -t aptx-awdl-guard "AWDL up: Blue Bloom is not streaming"; fi
+    fi
+fi

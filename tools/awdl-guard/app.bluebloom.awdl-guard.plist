@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>app.bluebloom.awdl-guard</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/libexec/aptx-awdl-guard</string>
+	</array>
+	<!-- Restores AWDL on boot even if the app crashed while the flag file was still there -->
+	<key>RunAtLoad</key>
+	<true/>
+	<!-- The app creates or removes the flag file; launchd runs the helper when that happens -->
+	<key>WatchPaths</key>
+	<array>
+		<string>/Users/Shared/.aptx-awdl-suppress</string>
+	</array>
+	<!-- Safety net in case a change of the watched path is missed (for example while the disk was asleep) -->
+	<key>StartInterval</key>
+	<integer>300</integer>
+	<key>ProcessType</key>
+	<string>Background</string>
+</dict>
+</plist>
