@@ -69,6 +69,18 @@ static BOOL HasStreams(AudioObjectID device, AudioObjectPropertyScope scope) {
     return NO;
 }
 
+- (BOOL)systemHasHeadphonesMusicOutput {
+    for (NSNumber *number in [self allDevices]) {
+        AudioObjectID device = number.unsignedIntValue;
+        if (![self isHeadsetDevice:device] || !HasStreams(device, kAudioObjectPropertyScopeOutput)) continue;
+        AudioObjectPropertyAddress address = GlobalAddress(kAudioDevicePropertyNominalSampleRate);
+        Float64 rate = 0;
+        UInt32 size = sizeof(rate);
+        if (AudioObjectGetPropertyData(device, &address, 0, NULL, &size, &rate) == noErr && rate >= 32000) return YES;
+    }
+    return NO;
+}
+
 - (NSString *)describe:(AudioObjectID)device {
     return [NSString stringWithFormat:@"%@ (%@)", DeviceString(device, kAudioObjectPropertyName) ?: @"?",
             DeviceString(device, kAudioDevicePropertyDeviceUID) ?: @"?"];

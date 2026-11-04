@@ -1,4 +1,5 @@
 #import "SystemAudio.h"
+#import "VirtualDeviceKeepAlive.h"
 #import <CoreAudio/CoreAudio.h>
 #import <CoreAudio/CATapDescription.h>
 #import <CoreAudio/AudioHardwareTapping.h>
@@ -115,6 +116,12 @@ static NSString *StatusText(OSStatus status) {
 
 - (instancetype)initWithDeviceUID:(NSString *)uid error:(NSString **)error {
     if (!(self = [super init])) return nil;
+    // The driver publishes the Blue Bloom device only while a client beats (VirtualDeviceKeepAlive); the app already does, the
+    // command-line tool starts here and waits for the device to appear
+    if ([uid isEqualToString:@kBBDeviceUID]) {
+        [VirtualDeviceKeepAlive start];
+        [VirtualDeviceKeepAlive waitForDevice:3];
+    }
     AudioObjectPropertyAddress address = { kAudioHardwarePropertyTranslateUIDToDevice, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain };
     CFStringRef qualifier = (__bridge CFStringRef)uid;
     AudioObjectID device = kAudioObjectUnknown;

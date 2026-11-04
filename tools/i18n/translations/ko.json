@@ -124,7 +124,6 @@
   "Maximum sample rate": "최대 샘플률",
   "Menu bar": "메뉴 막대",
   "Much better than standard SBC. Some headphones may not accept it.": "표준 SBC보다 훨씬 좋습니다. 일부 헤드폰은 지원하지 않을 수 있습니다.",
-  "Needs the separate AWDL guard helper, which isn't installed.": "별도의 AWDL 보호 도우미가 필요하지만 설치되어 있지 않습니다.",
   "No devices found yet": "아직 찾은 기기가 없습니다",
   "No limit": "제한 없음",
   "No paired Bluetooth headphones yet.": "아직 페어링된 Bluetooth 헤드폰이 없습니다.",
@@ -225,5 +224,7 @@
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Blue Bloom이 연결된 동안 다른 앱에서는 헤드폰 마이크를 사용할 수 없습니다(통화, 받아쓰기, 녹음 포함).",
   "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "Wi-Fi와 Bluetooth가 하나의 무선 장치를 공유하는 Mac에서는 Wi-Fi P2P 검색 때문에 소리가 끊깁니다.",
   "macOS": "macOS",
-  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "헤드폰이 Blue Bloom의 리모컨 채널을 거부해서(연결 직후에만 받아들이는 헤드폰도 있습니다) Mac 음량이 소프트웨어로 조절되며 헤드폰 자체 음량에 더해집니다. 소리가 작으면 헤드폰에서 음량을 높이세요. Blue Bloom이 계속 재시도합니다. 이 표시가 사라지지 않으면 헤드폰을 다시 연결하세요."
+  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "헤드폰이 Blue Bloom의 리모컨 채널을 거부해서(연결 직후에만 받아들이는 헤드폰도 있습니다) Mac 음량이 소프트웨어로 조절되며 헤드폰 자체 음량에 더해집니다. 소리가 작으면 헤드폰에서 음량을 높이세요. Blue Bloom이 계속 재시도합니다. 이 표시가 사라지지 않으면 헤드폰을 다시 연결하세요.",
+  "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": "고정 비트 전송률은 낮출 여유가 없습니다. Bluetooth 연결이 혼잡하면(예: Wi-Fi 사용 중) 소리가 끊길 수 있습니다. 적응형은 연결이 허용하는 한 이 비트 전송률을 사용합니다.",
+  "Can drop out when the link is busy; Adaptive is steadier": "연결이 혼잡하면 끊길 수 있습니다. 적응형이 더 안정적입니다"
 }

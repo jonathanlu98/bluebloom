@@ -2,6 +2,30 @@
 
 All notable changes to Blue Bloom are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). Versions before 1.0 are pre-releases.
 
+## [0.1.3] - 2026-11-04
+
+This version updates the Blue Bloom audio device. Blue Bloom asks to update it after you open the new version, which needs an administrator password.
+
+### Changed
+
+- Connect no longer has Blue Bloom reach the headphones on its own. When they aren't connected, Blue Bloom asks macOS to connect them and then takes over that connection. When macOS is already using them, Blue Bloom takes them over on the same connection instead of disconnecting them first.
+- The Blue Bloom audio device is only there while Blue Bloom or its command-line tool runs.
+- When Blue Bloom disconnects, is turned off or quits while it is the sound output, it pauses the app that is playing before the output goes back to the previous device, so the music doesn't suddenly play from the speakers. Only the app shown in Now Playing is paused, as when Bluetooth headphones disconnect from macOS.
+- Choosing the highest fixed quality for LDAC or aptX Adaptive shows a note that it can drop out on a busy link, and that Adaptive uses the same bitrate whenever the link allows (#4).
+
+### Fixed
+
+- Connecting could take two attempts: right after the connection came up, some headphones (Focal Bathys) didn't answer Blue Bloom's request, and the attempt failed after a few seconds, reported as a page timeout. The new connection flow avoids that request. It also replaces the path that failed with KZ AN01 headphones (#2), which hasn't been tested with them yet.
+- After Blue Bloom quit, its audio device stayed and could remain the sound output, playing into nothing (#3). If Blue Bloom quits unexpectedly, the device is removed once nothing has played into it for a few seconds.
+- The "Pause AirDrop and AirPlay discovery while streaming" setting is hidden unless the separate AWDL guard helper is installed; before, it showed and did nothing (#5).
+
+### Known issues
+
+- The app is not signed with an Apple Developer ID or notarized. macOS blocks it the first time; allow it in System Settings › Privacy & Security. After each update macOS asks for Bluetooth access again.
+- The connection changes in this version were tested on macOS 27 with Focal Bathys headphones only.
+- While Blue Bloom is connected, other apps can't use the headphones' microphone.
+- After Blue Bloom disconnects them, some headphones (observed with Focal Bathys) can't be reached for 20 to 35 seconds.
+
 ## [0.1.2] - 2026-10-19
 
 ### Changed

@@ -125,6 +125,25 @@ static xpc_object_t DeviceArgs(NSUUID *device) {
     return record ? xpc_dictionary_get_int64(record, "kCBMsgArgInternalState") : -1;
 }
 
+- (uint8_t)rfcommChannelForService:(uint16_t)service16 address:(NSString *)address {
+    xpc_object_t record = [self deviceRecordForAddress:address];
+    xpc_object_t services = record ? xpc_dictionary_get_value(record, "kCBMsgArgServices") : NULL;
+    if (!services || xpc_get_type(services) != XPC_TYPE_ARRAY) return 0;
+    __block uint8_t channel = 0;
+    xpc_array_apply(services, ^bool(size_t index, xpc_object_t service) {
+        if (xpc_get_type(service) != XPC_TYPE_DICTIONARY) return true;
+        size_t length = 0;
+        const uint8_t *uuid = xpc_dictionary_get_data(service, "kCBMsgArgServiceUUID", &length);
+        int64_t rfcomm = xpc_dictionary_get_int64(service, "kCBMsgArgRFCOMMChannelID");
+        if (uuid && length == 2 && (uuid[0] << 8 | uuid[1]) == service16 && rfcomm > 0 && rfcomm < 31) {
+            channel = (uint8_t)rfcomm;
+            return false;
+        }
+        return true;
+    });
+    return channel;
+}
+
 - (void)connectDevice:(NSUUID *)device {
     xpc_object_t services = xpc_array_create(NULL, 0);
     xpc_array_set_int64(services, XPC_ARRAY_APPEND, kConnectServices);

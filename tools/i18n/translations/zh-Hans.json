@@ -124,7 +124,6 @@
   "Maximum sample rate": "最高采样率",
   "Menu bar": "菜单栏",
   "Much better than standard SBC. Some headphones may not accept it.": "比标准 SBC 好得多。部分耳机可能不接受。",
-  "Needs the separate AWDL guard helper, which isn't installed.": "需要另装的 AWDL 守护程序，目前未安装。",
   "No devices found yet": "尚未找到设备",
   "No limit": "不限制",
   "No paired Bluetooth headphones yet.": "还没有已配对的蓝牙耳机。",
@@ -225,5 +224,7 @@
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Blue Bloom 连接期间，其他应用无法使用耳机的麦克风——包括通话、听写和录音。",
   "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "在 Wi-Fi 和蓝牙共用一个射频的 Mac 上，Wi-Fi 点对点扫描会导致断音。",
   "macOS": "macOS",
-  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "耳机拒绝了 Blue Bloom 的遥控通道（有些耳机只在刚连上时接受），Mac 音量改为在软件里调节，叠在耳机自己的音量上。声音偏小时请在耳机上调大。Blue Bloom 会一直重试；如果提示一直不消失，请重新连接耳机。"
+  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "耳机拒绝了 Blue Bloom 的遥控通道（有些耳机只在刚连上时接受），Mac 音量改为在软件里调节，叠在耳机自己的音量上。声音偏小时请在耳机上调大。Blue Bloom 会一直重试；如果提示一直不消失，请重新连接耳机。",
+  "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": "固定码率没有降档余地：蓝牙链路繁忙时（例如 Wi-Fi 正在使用），声音可能断续。自适应会在链路允许时一直使用这个码率。",
+  "Can drop out when the link is busy; Adaptive is steadier": "链路繁忙时可能断续，自适应更稳定"
 }

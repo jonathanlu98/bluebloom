@@ -122,7 +122,11 @@ struct CodecsPane: View {
                     } label: {
                         Text("\(codec.displayName) quality")
                         if presets.contains(where: \.isAdaptive) {
-                            Text("Adaptive lowers the bitrate when the link gets congested, then climbs back.")
+                            if settings.preset(for: codec)?.isHighestFixed(in: presets) == true {
+                                Text("A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.")
+                            } else {
+                                Text("Adaptive lowers the bitrate when the link gets congested, then climbs back.")
+                            }
                         }
                     }
                 } header: {
@@ -262,12 +266,13 @@ struct AudioPane: View {
                     Text("Sync volume with the headphones")
                     Text("The Mac volume controls the headphone amplifier (absolute volume) instead of attenuating the signal.")
                 }
-                Toggle(isOn: Binding(get: { settings.awdlSuppress }, set: { settings.awdlSuppress = $0 })) {
-                    Text("Pause AirDrop and AirPlay discovery while streaming")
-                    AwdlGuard.helperInstalled ? Text("Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.")
-                                              : Text("Needs the separate AWDL guard helper, which isn't installed.")
+                // Only with the separate AWDL guard helper installed (see AwdlGuard)
+                if AwdlGuard.helperInstalled {
+                    Toggle(isOn: Binding(get: { settings.awdlSuppress }, set: { settings.awdlSuppress = $0 })) {
+                        Text("Pause AirDrop and AirPlay discovery while streaming")
+                        Text("Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.")
+                    }
                 }
-                .disabled(!AwdlGuard.helperInstalled)
             } header: {
                 Text("Playback")
             }

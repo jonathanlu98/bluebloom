@@ -124,7 +124,6 @@
   "Maximum sample rate": "Fréquence d’échantillonnage maximale",
   "Menu bar": "Barre des menus",
   "Much better than standard SBC. Some headphones may not accept it.": "Bien meilleur que le SBC standard. Certains casques peuvent le refuser.",
-  "Needs the separate AWDL guard helper, which isn't installed.": "Nécessite l’assistant AWDL distinct, qui n’est pas installé.",
   "No devices found yet": "Aucun appareil trouvé pour l’instant",
   "No limit": "Aucune limite",
   "No paired Bluetooth headphones yet.": "Aucun casque Bluetooth jumelé pour l’instant.",
@@ -225,5 +224,7 @@
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Tant que Blue Bloom est connecté, les autres apps ne peuvent pas utiliser le micro des écouteurs — appels, dictée et enregistrement compris.",
   "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "Sur les Mac où le Wi-Fi et le Bluetooth partagent une même radio, les recherches Wi-Fi pair à pair provoquent des coupures.",
   "macOS": "macOS",
-  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "Le casque a refusé le canal de télécommande de Blue Bloom (certains ne l'acceptent que juste après la connexion) : le volume du Mac est donc appliqué par logiciel, en plus du volume propre au casque. Si le son est trop faible, montez le volume sur le casque. Blue Bloom réessaie en continu ; si ce message ne disparaît pas, reconnectez le casque."
+  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "Le casque a refusé le canal de télécommande de Blue Bloom (certains ne l'acceptent que juste après la connexion) : le volume du Mac est donc appliqué par logiciel, en plus du volume propre au casque. Si le son est trop faible, montez le volume sur le casque. Blue Bloom réessaie en continu ; si ce message ne disparaît pas, reconnectez le casque.",
+  "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": "Un débit fixe ne peut pas baisser : quand la liaison Bluetooth est chargée, par exemple avec le Wi-Fi actif, le son peut couper. Le mode adaptatif utilise ce débit dès que la liaison le permet.",
+  "Can drop out when the link is busy; Adaptive is steadier": "Peut couper quand la liaison est chargée ; le mode adaptatif est plus stable"
 }

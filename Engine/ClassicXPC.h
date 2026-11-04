@@ -30,6 +30,10 @@ typedef void (^RFCOMMOpenHandler)(int result, uint16_t mtu, uint16_t service16, 
 // is no link and 2 while one is up, following the link within about 0.1 s (2026-10-19; IOBluetooth's isConnected lagged 0.5 s and
 // said "not connected" while the link was up); -1 when the lookup fails
 - (int64_t)linkStateForAddress:(NSString *)address;
+// RFCOMM channel of the peer service with this 16-bit UUID, from the service list (kCBMsgArgServices) in the same lookup; bluetoothd
+// refreshes it from SDP on every connection, while IOBluetooth's SDP cache can be empty right after launch or out of date (Bathys
+// moved HFP between channels 10 and 12). 0 when not listed
+- (uint8_t)rfcommChannelForService:(uint16_t)service16 address:(NSString *)address;
 - (void)connectDevice:(NSUUID *)device;
 - (void)cancelConnection:(NSUUID *)device;
 - (void)openChannel:(NSUUID *)device psm:(uint16_t)psm handler:(ChannelOpenHandler)handler;

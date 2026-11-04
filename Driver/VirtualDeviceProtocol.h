@@ -18,6 +18,18 @@ enum { kBBPropertyAudioData = 'aptd' };
 // and the driver no longer attenuates the sound by volume; when 0, software attenuation is applied by volume (the fallback when the headphones' AVRCP channel could not be grabbed). Mute works in both modes.
 enum { kBBPropertyHardwareVolume = 'aptm' };
 
+// Client presence, on the driver's plug-in object (not the device; find it with kAudioHardwarePropertyTranslateBundleIDToPlugIn
+// and kBBPlugInBundleID). CFNumber: Blue Bloom (the app or the command-line tool) writes a nonzero value every
+// kBBClientAliveInterval seconds while it runs and 0 when it quits. The driver publishes the device only while a client is alive:
+// it withdraws it at once on 0, or kBBClientAliveTimeout seconds after the last beat (a crash or forced quit) once nothing has
+// played into it for a few seconds, and macOS then moves its default output elsewhere instead of playing into a device nobody
+// reads (GitHub issue #3). Before writing 0 the client pauses what plays into the device, so it does not jump to the speakers.
+// Drivers before CFBundleVersion 6 publish the device all the time and do not have this property
+enum { kBBPropertyClientAlive = 'aptc' };
+#define kBBPlugInBundleID "app.bluebloom.driver"
+#define kBBClientAliveInterval 2.0
+#define kBBClientAliveTimeout 20.0
+
 // Maximum frames returned at once (about 170ms@96k); when further behind, the oldest part is dropped
 #define kBBMaxChunkFrames 16384
 

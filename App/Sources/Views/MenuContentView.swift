@@ -530,6 +530,9 @@ struct QualityChoices: View {
             Text("\(codec.displayName) quality")
         }
         .pickerStyle(.inline)
+        if settings.preset(for: codec)?.isHighestFixed(in: presets) == true, presets.contains(where: \.isAdaptive) {
+            Text("Can drop out when the link is busy; Adaptive is steadier")
+        }
     }
 }
 
@@ -595,6 +598,13 @@ extension CodecPreset {
 
     func shortTitle(_ context: QualityContext = QualityContext()) -> String {
         effectiveKbps(context).map(Format.kbps) ?? String(localized: "Adaptive")
+    }
+
+    // The highest fixed tier has no room to step down, so on a busy link it drops out instead (GitHub issue #4: LDAC at 909 kbps
+    // needed about 928 kbps on air, the link drained at most about 935, and every dip lost audio; Adaptive stayed at that rate
+    // most of the time and stepped down briefly)
+    func isHighestFixed(in presets: [CodecPreset]) -> Bool {
+        !isAdaptive && presets.first(where: { !$0.isAdaptive })?.identifier == identifier
     }
 }
 

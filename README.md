@@ -35,8 +35,8 @@ Blue Bloom is a menu bar app that streams your Mac's audio to Bluetooth headphon
 ## How it works
 
 - Blue Bloom talks to the macOS Bluetooth daemon directly and opens the A2DP channels to your headphones itself, so it can choose the codec and bitrate. It also holds the hands-free and remote control channels, so macOS doesn't switch the headphones to call mode and the volume and buttons go through Blue Bloom.
-- It adds a virtual audio device named **Blue Bloom**. Audio that apps play to it is encoded and streamed to the headphones.
-- When you quit Blue Bloom or turn it off, the headphones go back to macOS.
+- It adds a virtual audio device named **Blue Bloom**, which is there while Blue Bloom runs. Audio that apps play to it is encoded and streamed to the headphones.
+- When you quit Blue Bloom or turn it off, the headphones go back to macOS. If the music was playing through Blue Bloom, it is paused first and the sound output goes back to the previous device.
 
 ## Limitations
 

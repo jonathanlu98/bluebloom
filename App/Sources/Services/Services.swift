@@ -218,20 +218,24 @@ enum Compatibility {
 
 // MARK: - Suppress AirDrop/AirPlay while streaming
 
-// The flag file is created only when "switch on + streaming"; whether suppression actually happens is up to /usr/local/libexec/aptx-awdl-guard (the file path is a contract with it and must not change)
+// The flag file is created only when "switch on + streaming"; whether suppression actually happens is up to /usr/local/libexec/aptx-awdl-guard (the file path is a contract with it and must not change).
+// The helper is a separate local experiment, not part of Blue Bloom: without it nothing reads the flag, so neither the option nor
+// the flag exists (GitHub issue #5: the option showed for everyone, and logs said "AirDrop/AirPlay paused" when nothing was paused)
 enum AwdlGuard {
     static let flagPath = "/Users/Shared/.aptx-awdl-suppress"
 
     static func update(suppress: Bool) {
         let manager = FileManager.default
         let present = manager.fileExists(atPath: flagPath)
-        guard suppress != present else { return }
-        if suppress {
+        let installed = helperInstalled
+        let wanted = suppress && installed
+        guard wanted != present else { return }
+        if wanted {
             manager.createFile(atPath: flagPath, contents: nil)
             BBLogMessage("AirDrop/AirPlay paused")
         } else {
             try? manager.removeItem(atPath: flagPath)
-            BBLogMessage("AirDrop/AirPlay resumed")
+            if installed { BBLogMessage("AirDrop/AirPlay resumed") }
         }
     }
 

@@ -18,6 +18,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)stop;
 // Whether coreaudiod has a device for these headphones: macOS holds their A2DP ("<address>-tacl") or HFP audio
 - (BOOL)systemHasHeadphonesDevice;
+// Whether macOS has the headphones' music output (A2DP): their "<address>:output" device at 32 kHz or more. The same UID is
+// the call device while only HFP is up, which runs at 16 kHz (mSBC) or 8 kHz (CVSD)
+- (BOOL)systemHasHeadphonesMusicOutput;
 
 @end
 

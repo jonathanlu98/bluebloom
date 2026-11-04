@@ -820,6 +820,52 @@
         }
       }
     },
+    "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine feste Bitrate kann nicht ausweichen: Ist die Bluetooth-Verbindung ausgelastet, etwa bei aktivem WLAN, kann der Ton aussetzen. „Adaptiv“ nutzt diese Bitrate, wann immer die Verbindung es zulässt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una tasa fija no puede bajar: si el enlace Bluetooth está saturado, por ejemplo con el Wi-Fi activo, el sonido puede cortarse. El modo adaptativo usa esta tasa siempre que el enlace lo permite."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un débit fixe ne peut pas baisser : quand la liaison Bluetooth est chargée, par exemple avec le Wi-Fi actif, le son peut couper. Le mode adaptatif utilise ce débit dès que la liaison le permet."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "固定ビットレートには下げる余地がありません。Bluetooth 接続が混雑すると（Wi-Fi の使用中など）音が途切れることがあります。適応は、接続が許す限りこのビットレートを使います。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "고정 비트 전송률은 낮출 여유가 없습니다. Bluetooth 연결이 혼잡하면(예: Wi-Fi 사용 중) 소리가 끊길 수 있습니다. 적응형은 연결이 허용하는 한 이 비트 전송률을 사용합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "固定码率没有降档余地：蓝牙链路繁忙时（例如 Wi-Fi 正在使用），声音可能断续。自适应会在链路允许时一直使用这个码率。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "固定位元率沒有降檔餘地：藍牙連線繁忙時（例如 Wi-Fi 正在使用），聲音可能斷續。自適應會在連線允許時一直使用這個位元率。"
+          }
+        }
+      }
+    },
     "A newer version comes with this app. Requires an administrator password.": {
       "localizations": {
         "de": {
@@ -2518,6 +2564,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "藍牙已關閉"
+          }
+        }
+      }
+    },
+    "Can drop out when the link is busy; Adaptive is steadier": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kann bei ausgelasteter Verbindung aussetzen; „Adaptiv“ ist stabiler"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puede cortarse si el enlace está saturado; el modo adaptativo es más estable"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peut couper quand la liaison est chargée ; le mode adaptatif est plus stable"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続が混雑すると途切れることがあります。適応の方が安定します"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연결이 혼잡하면 끊길 수 있습니다. 적응형이 더 안정적입니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "链路繁忙时可能断续，自适应更稳定"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連線繁忙時可能斷續，自適應更穩定"
           }
         }
       }
@@ -5789,6 +5881,7 @@
       }
     },
     "Needs the separate AWDL guard helper, which isn't installed.": {
+      "extractionState": "stale",
       "localizations": {
         "de": {
           "stringUnit": {

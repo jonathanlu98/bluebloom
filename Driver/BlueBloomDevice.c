@@ -2,9 +2,11 @@
 // Sound that apps play to this device is written into a ring buffer; Blue Bloom fetches it through the custom property kBBPropertyAudioData (see VirtualDeviceProtocol.h),
 // encodes it with the negotiated codec and sends it to the headphones. No input is provided: reading an input would make macOS treat it as using the microphone.
 // The plug-in runs in coreaudiod's sandboxed process and cannot set up its own communication channel; property reads are relayed by the HAL.
+// The device is published only while Blue Bloom runs (kBBPropertyClientAlive), so it never stays behind as an output nobody reads.
 // Interface definitions are in CoreAudio/AudioServerPlugIn.h; the structure follows Apple's NullAudio sample.
 
 #include <CoreAudio/AudioServerPlugIn.h>
+#include <dispatch/dispatch.h>
 #include <mach/mach_time.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -16,7 +18,7 @@
 #define DEVICE_NAME "Blue Bloom"
 #endif
 
-#define kPlugInBundleID     "app.bluebloom.driver"
+#define kPlugInBundleID     kBBPlugInBundleID
 #define kDeviceUID          kBBDeviceUID
 #define kDeviceModelUID     "app.bluebloom.model"
 #define kManufacturerName   "Blue Bloom"
@@ -96,6 +98,119 @@ static void NotifyChanged(AudioObjectID object, AudioObjectPropertySelector sele
     if (!gHost) return;
     AudioObjectPropertyAddress address = { selector, scope, kAudioObjectPropertyElementMain };
     gHost->PropertiesChanged(gHost, object, 1, &address);
+}
+
+#pragma mark Publishing the device while a client is alive
+
+// See kBBPropertyClientAlive. Beats are kept per client process (the app and the command-line tool may run together, and one
+// quitting must not withdraw the device from the other). Times are mach_absolute_time, which stops while the Mac sleeps, so
+// sleep does not count against a client
+#define kMaxClients 8
+static pthread_mutex_t gClientMutex = PTHREAD_MUTEX_INITIALIZER;
+static pid_t gClientPIDs[kMaxClients];
+static UInt64 gClientBeats[kMaxClients];
+static _Atomic Boolean gPublished = false;
+static UInt64 gClientTimeoutTicks = 0;
+static dispatch_source_t gClientTimer = NULL;
+// A client stopped beating without saying goodbye (it crashed or was force-quit), so nobody paused what plays into the device as
+// the app does before it quits; withdrawing the device now would move that sound to the speakers mid-song. The device is kept
+// while sound plays into it and withdrawn kQuietBeforeWithdrawSeconds after it went quiet. Both are guarded by gClientMutex
+#define kQuietBeforeWithdrawSeconds 5.0
+static Boolean gHoldWhileSound = false;
+static UInt64 gLastSoundTicks = 0;
+static UInt64 gQuietTicks = 0;
+
+static void SetPublished(Boolean published) {
+    if (atomic_exchange(&gPublished, published) == published) return;
+    NotifyChanged(kObjectID_PlugIn, kAudioPlugInPropertyDeviceList, kAudioObjectPropertyScopeGlobal);
+    NotifyChanged(kObjectID_PlugIn, kAudioObjectPropertyOwnedObjects, kAudioObjectPropertyScopeGlobal);
+}
+
+// Whether apps play sound into the device: IO is running and the ring holds a nonzero sample (it covers the last
+// kRingFrames frames, about 0.7 s at 48 kHz; it keeps old samples once IO stops). Read without the lock, as GetAudioData does
+static Boolean SoundPlaying(void) {
+    pthread_mutex_lock(&gStateMutex);
+    Boolean running = gIOCount > 0;
+    pthread_mutex_unlock(&gStateMutex);
+    if (!running) return false;
+    for (size_t i = 0; i < kRingFrames * kChannels; i++) {
+        if (gRing[i] != 0) return true;
+    }
+    return false;
+}
+
+// Forget clients whose last beat is too old; whether the device should stay published (a client is alive, or see
+// gHoldWhileSound). Called with gClientMutex held
+static Boolean ShouldPublishLocked(UInt64 now) {
+    Boolean any = false;
+    for (int i = 0; i < kMaxClients; i++) {
+        if (!gClientPIDs[i]) continue;
+        if (now - gClientBeats[i] > gClientTimeoutTicks) {
+            gClientPIDs[i] = 0;
+            gHoldWhileSound = true;
+            gLastSoundTicks = 0;
+        } else {
+            any = true;
+        }
+    }
+    if (any) {
+        gHoldWhileSound = false;
+        return true;
+    }
+    if (!gHoldWhileSound) return false;
+    if (SoundPlaying()) gLastSoundTicks = now;
+    if (gLastSoundTicks && now - gLastSoundTicks <= gQuietTicks) return true;
+    gHoldWhileSound = false;
+    return false;
+}
+
+static void ClientBeat(pid_t pid, Boolean alive) {
+    if (pid <= 0) pid = -1;  // the host did not say who it is: all such clients share one slot
+    UInt64 now = mach_absolute_time();
+    pthread_mutex_lock(&gClientMutex);
+    int slot = -1;
+    for (int i = 0; i < kMaxClients && slot < 0; i++) {
+        if (gClientPIDs[i] == pid) slot = i;
+    }
+    if (alive) {
+        // A new client takes a free slot, or the one that beat longest ago when all are taken
+        for (int i = 0; i < kMaxClients && slot < 0; i++) {
+            if (!gClientPIDs[i]) slot = i;
+        }
+        if (slot < 0) {
+            slot = 0;
+            for (int i = 1; i < kMaxClients; i++) {
+                if (gClientBeats[i] < gClientBeats[slot]) slot = i;
+            }
+        }
+        gClientPIDs[slot] = pid;
+        gClientBeats[slot] = now;
+    } else if (slot >= 0) {
+        // A goodbye: the client paused what it played and moved the output away first
+        gClientPIDs[slot] = 0;
+    }
+    Boolean publish = ShouldPublishLocked(now);
+    pthread_mutex_unlock(&gClientMutex);
+    SetPublished(publish);
+}
+
+static void CheckClients(void *context) {
+    pthread_mutex_lock(&gClientMutex);
+    Boolean publish = ShouldPublishLocked(mach_absolute_time());
+    pthread_mutex_unlock(&gClientMutex);
+    SetPublished(publish);
+}
+
+static void StartClientWatch(void) {
+    mach_timebase_info_data_t timebase;
+    mach_timebase_info(&timebase);
+    gClientTimeoutTicks = (UInt64)(kBBClientAliveTimeout * 1e9 * timebase.denom / timebase.numer);
+    gQuietTicks = (UInt64)(kQuietBeforeWithdrawSeconds * 1e9 * timebase.denom / timebase.numer);
+    gClientTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_queue_create("app.bluebloom.driver.clients", DISPATCH_QUEUE_SERIAL));
+    uint64_t interval = (uint64_t)(kBBClientAliveInterval * NSEC_PER_SEC);
+    dispatch_source_set_timer(gClientTimer, dispatch_time(DISPATCH_TIME_NOW, (int64_t)interval), interval, interval / 4);
+    dispatch_source_set_event_handler_f(gClientTimer, CheckClients);
+    dispatch_resume(gClientTimer);
 }
 
 #define CHECK_SIZE(type) do { if (inDataSize < sizeof(type)) return kAudioHardwareBadPropertySizeError; } while (0)
@@ -198,6 +313,8 @@ static OSStatus AptX_Initialize(AudioServerPlugInDriverRef inDriver, AudioServer
     if (inDriver != gDriverRef) return kAudioHardwareBadObjectError;
     gHost = inHost;
     UpdateTicksPerFrame();
+    // Not published until a client beats (see kBBPropertyClientAlive)
+    if (!gClientTimer) StartClientWatch();
     return noErr;
 }
 
@@ -245,6 +362,8 @@ static Boolean PlugInHasProperty(const AudioObjectPropertyAddress *address) {
         case kAudioPlugInPropertyDeviceList:
         case kAudioPlugInPropertyTranslateUIDToDevice:
         case kAudioPlugInPropertyResourceBundle:
+        case kAudioObjectPropertyCustomPropertyInfoList:
+        case kBBPropertyClientAlive:
             return true;
         default:
             return false;
@@ -360,6 +479,9 @@ static OSStatus AptX_IsPropertySettable(AudioServerPlugInDriverRef inDriver, Aud
     if (!inAddress || !outIsSettable) return kAudioHardwareIllegalOperationError;
     if (!AptX_HasProperty(inDriver, inObjectID, inClientProcessID, inAddress)) return kAudioHardwareUnknownPropertyError;
     switch (inObjectID) {
+        case kObjectID_PlugIn:
+            *outIsSettable = inAddress->mSelector == kBBPropertyClientAlive;
+            break;
         case kObjectID_Device:
             *outIsSettable = inAddress->mSelector == kAudioDevicePropertyNominalSampleRate || inAddress->mSelector == kBBPropertyHardwareVolume;
             break;
@@ -401,8 +523,9 @@ static OSStatus AptX_GetPropertyDataSize(AudioServerPlugInDriverRef inDriver, Au
     if (inDriver != gDriverRef) return kAudioHardwareBadObjectError;
     if (!inAddress || !outDataSize) return kAudioHardwareIllegalOperationError;
     // Device name, sound data and hardware volume mode create a new CF object on every read (released by the caller), so they must not be created when only the size is asked
-    if (inObjectID == kObjectID_Device && (inAddress->mSelector == kAudioObjectPropertyName || inAddress->mSelector == kBBPropertyAudioData ||
-                                           inAddress->mSelector == kBBPropertyHardwareVolume)) {
+    if ((inObjectID == kObjectID_Device && (inAddress->mSelector == kAudioObjectPropertyName || inAddress->mSelector == kBBPropertyAudioData ||
+                                            inAddress->mSelector == kBBPropertyHardwareVolume)) ||
+        (inObjectID == kObjectID_PlugIn && inAddress->mSelector == kBBPropertyClientAlive)) {
         *outDataSize = sizeof(CFStringRef);
         return noErr;
     }
@@ -440,7 +563,8 @@ static OSStatus GetPlugInProperty(const AudioObjectPropertyAddress *address, UIn
             return noErr;
         case kAudioObjectPropertyOwnedObjects:
         case kAudioPlugInPropertyDeviceList:
-            if (inDataSize < sizeof(AudioObjectID)) {
+            // The device exists only while a client is alive (kBBPropertyClientAlive)
+            if (inDataSize < sizeof(AudioObjectID) || !atomic_load(&gPublished)) {
                 *outDataSize = 0;
                 return noErr;
             }
@@ -451,8 +575,27 @@ static OSStatus GetPlugInProperty(const AudioObjectPropertyAddress *address, UIn
             CHECK_SIZE(AudioObjectID);
             if (qualifierSize < sizeof(CFStringRef) || !qualifier) return kAudioHardwareBadPropertySizeError;
             CFStringRef uid = *(const CFStringRef *)qualifier;
-            *(AudioObjectID *)outData = uid && CFStringCompare(uid, CFSTR(kDeviceUID), 0) == kCFCompareEqualTo ? kObjectID_Device : kAudioObjectUnknown;
+            Boolean match = uid && CFStringCompare(uid, CFSTR(kDeviceUID), 0) == kCFCompareEqualTo && atomic_load(&gPublished);
+            *(AudioObjectID *)outData = match ? kObjectID_Device : kAudioObjectUnknown;
             *outDataSize = sizeof(AudioObjectID);
+            return noErr;
+        }
+        case kAudioObjectPropertyCustomPropertyInfoList: {
+            AudioServerPlugInCustomPropertyInfo info = { kBBPropertyClientAlive, kAudioServerPlugInCustomPropertyDataTypeCFPropertyList, kAudioServerPlugInCustomPropertyDataTypeNone };
+            if (inDataSize < sizeof(info)) {
+                *outDataSize = 0;
+                return noErr;
+            }
+            memcpy(outData, &info, sizeof(info));
+            *outDataSize = sizeof(info);
+            return noErr;
+        }
+        case kBBPropertyClientAlive: {
+            // Reads back whether the device is published
+            CHECK_SIZE(CFPropertyListRef);
+            int value = atomic_load(&gPublished) ? 1 : 0;
+            *(CFPropertyListRef *)outData = CFNumberCreate(NULL, kCFNumberIntType, &value);
+            *outDataSize = sizeof(CFPropertyListRef);
             return noErr;
         }
         case kAudioPlugInPropertyResourceBundle:
@@ -842,6 +985,17 @@ static OSStatus AptX_SetPropertyData(AudioServerPlugInDriverRef inDriver, AudioO
     if (inDriver != gDriverRef) return kAudioHardwareBadObjectError;
     if (!inAddress || !inData) return kAudioHardwareIllegalOperationError;
     switch (inObjectID) {
+        case kObjectID_PlugIn: {
+            if (inAddress->mSelector != kBBPropertyClientAlive) return kAudioHardwareUnknownPropertyError;
+            CHECK_SIZE(CFPropertyListRef);
+            CFPropertyListRef value = *(const CFPropertyListRef *)inData;
+            int alive = 0;
+            if (!value || CFGetTypeID(value) != CFNumberGetTypeID() || !CFNumberGetValue(value, kCFNumberIntType, &alive)) {
+                return kAudioHardwareIllegalOperationError;
+            }
+            ClientBeat(inClientProcessID, alive != 0);
+            return noErr;
+        }
         case kObjectID_Device:
             if (inAddress->mSelector == kBBPropertyHardwareVolume) {
                 CHECK_SIZE(CFPropertyListRef);

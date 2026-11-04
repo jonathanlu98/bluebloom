@@ -132,6 +132,9 @@ final class AppModel {
         if Snapshot.isActive { return }
         LogFile.start()
         BBLogMessage("Blue Bloom \(Self.versionDescription) started on macOS \(Self.osVersion) (\(Self.osBuild)), \(Self.macModel)")
+        // The driver publishes the virtual device only while Blue Bloom runs (GitHub issue #3); it appears shortly after the first
+        // beat, and refreshSystemState starts the controller then
+        VirtualDeviceKeepAlive.start()
         refreshSystemState()
         applySampleRateMode()
         ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -359,6 +362,7 @@ final class AppModel {
     func refreshSystemState() {
         guard !Snapshot.isActive else { return }
         driverState = DriverManager.state
+        let wasReady = virtualDeviceReady
         virtualDeviceReady = AudioOutput.virtualDevice != nil
         let virtual = AudioOutput.virtualDevice
         deviceRate = virtual.flatMap(AudioOutput.nominalSampleRate(of:)) ?? 0
@@ -368,6 +372,11 @@ final class AppModel {
         blueBloomIsOutput = AudioOutput.isBlueBloomDefault
         outputName = AudioOutput.defaultOutputName
         devices.refresh()
+        // The device appeared (just launched, or coreaudiod restarted): start what was waiting for it
+        if !wasReady, virtualDeviceReady, !installingDriver, !uninstalling, controller == nil {
+            BBLogMessage("Virtual device is available")
+            startController()
+        }
     }
 
     // MARK: Sound output follows the connection state
@@ -396,12 +405,31 @@ final class AppModel {
         if Date().timeIntervalSince(since) > 3 { restoreOutput() }
     }
 
-    // Only restore an output Blue Bloom switched itself; leave one the user picked manually alone
-    private func restoreOutput() {
-        guard switchedOutput else { return }
-        AudioOutput.restorePrevious()
+    // Only restore an output Blue Bloom switched itself; leave one the user picked manually alone, except when Blue Bloom quits or is
+    // turned off: then nothing reads the device, so hand the output back either way (GitHub issue #3). What was playing is paused
+    // first, or it would suddenly come out of the speakers
+    private func restoreOutput(evenIfChosenByUser: Bool = false, then next: (() -> Void)? = nil) {
+        guard switchedOutput || (evenIfChosenByUser && AudioOutput.isBlueBloomDefault) else {
+            next?()
+            return
+        }
         switchedOutput = false
         linkDownSince = nil
+        pausePlayback { [weak self] in
+            // Streaming came back while pausing and switched the output to Blue Bloom again: keep it
+            if self?.switchedOutput != true { AudioOutput.restorePrevious() }
+            next?()
+        }
+    }
+
+    // While Blue Bloom is the output, pause the Now Playing app if sound plays into the device (VirtualDeviceKeepAlive.pausePlayback),
+    // as macOS does when Bluetooth headphones disconnect
+    private func pausePlayback(then next: @escaping () -> Void) {
+        guard AudioOutput.isBlueBloomDefault else {
+            next()
+            return
+        }
+        VirtualDeviceKeepAlive.pausePlayback(then: next)
     }
 
     func useBlueBloomOutput() {
@@ -414,7 +442,15 @@ final class AppModel {
 
     func setEnabled(_ enabled: Bool) {
         settings.enabled = enabled
-        if enabled { startController() } else { stopController { [weak self] in self?.restoreOutput() } }
+        if enabled {
+            startController()
+            return
+        }
+        // Pause before closing the stream, so the song stops where it was heard in the headphones
+        pausePlayback { [weak self] in
+            guard let self, !self.settings.enabled else { return }
+            self.stopController { [weak self] in self?.restoreOutput(evenIfChosenByUser: true) }
+        }
     }
 
     func activate(_ device: BluetoothDevice) {
@@ -557,9 +593,15 @@ final class AppModel {
     func prepareForQuit(_ done: @escaping () -> Void) {
         AwdlGuard.update(suppress: false)
         batteryPublisher.remove()
-        stopController { [weak self] in
-            self?.restoreOutput()
-            done()
+        // Pause before closing the stream, so the song stops where it was heard in the headphones
+        pausePlayback {
+            self.stopController {
+                self.restoreOutput(evenIfChosenByUser: true) {
+                    // The driver withdraws the device at once (unless the command-line tool is running too)
+                    VirtualDeviceKeepAlive.stop()
+                    done()
+                }
+            }
         }
     }
 

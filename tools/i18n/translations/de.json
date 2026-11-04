@@ -124,7 +124,6 @@
   "Maximum sample rate": "Maximale Abtastrate",
   "Menu bar": "Menüleiste",
   "Much better than standard SBC. Some headphones may not accept it.": "Deutlich besser als Standard-SBC. Manche Kopfhörer akzeptieren es eventuell nicht.",
-  "Needs the separate AWDL guard helper, which isn't installed.": "Benötigt das separate AWDL-Hilfsprogramm, das nicht installiert ist.",
   "No devices found yet": "Noch keine Geräte gefunden",
   "No limit": "Keine Begrenzung",
   "No paired Bluetooth headphones yet.": "Noch keine gekoppelten Bluetooth-Kopfhörer.",
@@ -225,5 +224,7 @@
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Solange Blue Bloom verbunden ist, können andere Apps das Mikrofon der Kopfhörer nicht nutzen – einschließlich Anrufen, Diktat und Aufnahme.",
   "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "Auf Macs, bei denen WLAN und Bluetooth ein Funkmodul teilen, verursachen WLAN-Peer-to-Peer-Suchen Aussetzer.",
   "macOS": "macOS",
-  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "Die Kopfhörer haben den Fernbedienungskanal von Blue Bloom abgelehnt (manche nehmen ihn nur direkt nach dem Verbinden an), daher wird die Mac-Lautstärke per Software zusätzlich zur Kopfhörerlautstärke angewendet. Ist es zu leise, erhöhe die Lautstärke am Kopfhörer. Blue Bloom versucht es weiter; verschwindet der Hinweis nicht, verbinde die Kopfhörer neu."
+  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "Die Kopfhörer haben den Fernbedienungskanal von Blue Bloom abgelehnt (manche nehmen ihn nur direkt nach dem Verbinden an), daher wird die Mac-Lautstärke per Software zusätzlich zur Kopfhörerlautstärke angewendet. Ist es zu leise, erhöhe die Lautstärke am Kopfhörer. Blue Bloom versucht es weiter; verschwindet der Hinweis nicht, verbinde die Kopfhörer neu.",
+  "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": "Eine feste Bitrate kann nicht ausweichen: Ist die Bluetooth-Verbindung ausgelastet, etwa bei aktivem WLAN, kann der Ton aussetzen. „Adaptiv“ nutzt diese Bitrate, wann immer die Verbindung es zulässt.",
+  "Can drop out when the link is busy; Adaptive is steadier": "Kann bei ausgelasteter Verbindung aussetzen; „Adaptiv“ ist stabiler"
 }

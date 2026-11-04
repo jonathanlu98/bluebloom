@@ -1,0 +1,17 @@
+load("@rules_apple//apple:macos.bzl", "macos_command_line_application")
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
+
+# Experiments on how bluetoothd and its stack bring links up (not part of the app)
+objc_library(
+    name = "main",
+    srcs = ["main.m"],
+    deps = ["//Engine"],
+)
+
+macos_command_line_application(
+    name = "linkexp",
+    bundle_id = "app.bluebloom.cli",
+    infoplists = ["Info.plist"],
+    minimum_os_version = "14.2",
+    deps = [":main"],
+)

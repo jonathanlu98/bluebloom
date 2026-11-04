@@ -124,7 +124,6 @@
   "Maximum sample rate": "Frecuencia de muestreo máxima",
   "Menu bar": "Barra de menús",
   "Much better than standard SBC. Some headphones may not accept it.": "Mucho mejor que el SBC estándar. Algunos auriculares podrían no aceptarlo.",
-  "Needs the separate AWDL guard helper, which isn't installed.": "Necesita el asistente AWDL independiente, que no está instalado.",
   "No devices found yet": "Aún no se ha encontrado ningún dispositivo",
   "No limit": "Sin límite",
   "No paired Bluetooth headphones yet.": "Aún no hay auriculares Bluetooth enlazados.",
@@ -225,5 +224,7 @@
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Mientras Blue Bloom está conectado, otras apps no pueden usar el micrófono de los auriculares, incluidas llamadas, dictado y grabación.",
   "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "En los Mac que comparten una radio para Wi-Fi y Bluetooth, las búsquedas Wi-Fi punto a punto provocan cortes.",
   "macOS": "macOS",
-  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "Los auriculares rechazaron el canal de control remoto de Blue Bloom (algunos solo lo aceptan justo después de conectarse), así que el volumen del Mac se aplica por software sobre el volumen propio de los auriculares. Si suena demasiado bajo, sube el volumen en los auriculares. Blue Bloom sigue reintentando; si este aviso no desaparece, vuelve a conectar los auriculares."
+  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "Los auriculares rechazaron el canal de control remoto de Blue Bloom (algunos solo lo aceptan justo después de conectarse), así que el volumen del Mac se aplica por software sobre el volumen propio de los auriculares. Si suena demasiado bajo, sube el volumen en los auriculares. Blue Bloom sigue reintentando; si este aviso no desaparece, vuelve a conectar los auriculares.",
+  "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": "Una tasa fija no puede bajar: si el enlace Bluetooth está saturado, por ejemplo con el Wi-Fi activo, el sonido puede cortarse. El modo adaptativo usa esta tasa siempre que el enlace lo permite.",
+  "Can drop out when the link is busy; Adaptive is steadier": "Puede cortarse si el enlace está saturado; el modo adaptativo es más estable"
 }

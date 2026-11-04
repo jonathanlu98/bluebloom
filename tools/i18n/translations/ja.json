@@ -124,7 +124,6 @@
   "Maximum sample rate": "最大サンプルレート",
   "Menu bar": "メニューバー",
   "Much better than standard SBC. Some headphones may not accept it.": "標準の SBC よりはるかに高音質です。一部のヘッドフォンは対応していない場合があります。",
-  "Needs the separate AWDL guard helper, which isn't installed.": "別途の AWDL ガードヘルパーが必要ですが、インストールされていません。",
   "No devices found yet": "デバイスがまだ見つかりません",
   "No limit": "制限なし",
   "No paired Bluetooth headphones yet.": "ペアリング済みの Bluetooth ヘッドフォンはまだありません。",
@@ -225,5 +224,7 @@
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Blue Bloom の接続中は、他のアプリからヘッドホンのマイクを使用できません（通話・ディクテーション・録音を含む）。",
   "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "Wi-Fi と Bluetooth が同じ無線を共有する Mac では、Wi-Fi のピアツーピア検索で音途切れが起きます。",
   "macOS": "macOS",
-  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "ヘッドフォンが Blue Bloom のリモートコントロールチャネルを拒否したため（接続直後にしか受け付けない機種もあります）、Mac の音量はソフトウェアで調整され、ヘッドフォン本体の音量に重ねて適用されます。音が小さい場合はヘッドフォン側で音量を上げてください。Blue Bloom は再試行を続けます。この表示が消えない場合は、ヘッドフォンを接続し直してください。"
+  "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "ヘッドフォンが Blue Bloom のリモートコントロールチャネルを拒否したため（接続直後にしか受け付けない機種もあります）、Mac の音量はソフトウェアで調整され、ヘッドフォン本体の音量に重ねて適用されます。音が小さい場合はヘッドフォン側で音量を上げてください。Blue Bloom は再試行を続けます。この表示が消えない場合は、ヘッドフォンを接続し直してください。",
+  "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": "固定ビットレートには下げる余地がありません。Bluetooth 接続が混雑すると（Wi-Fi の使用中など）音が途切れることがあります。適応は、接続が許す限りこのビットレートを使います。",
+  "Can drop out when the link is busy; Adaptive is steadier": "接続が混雑すると途切れることがあります。適応の方が安定します"
 }
