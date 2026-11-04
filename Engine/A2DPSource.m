@@ -1638,6 +1638,9 @@ static const double kQuietPollInterval = 0.02;
     BBLog(@"START accepted, streaming %@", _configuration.summary);
     _idleSuspended = NO;
     [self reportStatus:LinkStatusStreaming];
+    // Start from the newest sound: the headphones' buffer is empty at START, so a backlog captured before it (or before
+    // the pause) would only play late, and the queue depth it produces reads as congestion to adaptive bitrate
+    if (_systemAudio) [_systemAudio dropBacklog];
     [_streamer start];
     if (_systemAudio && !_idleTimer) {
         __weak typeof(self) weakSelf = self;

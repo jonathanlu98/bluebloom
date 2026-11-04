@@ -296,6 +296,19 @@ static NSString *StatusText(OSStatus status) {
     if (head - tail > keep) atomic_store_explicit(&_read, head - keep, memory_order_release);
 }
 
+// The device keeps producing sound while nothing streams (the tap runs on its own clock, and in virtual device mode the
+// device is the system output), so at START the buffer holds sound from before the stream. Playing it is late by the same
+// amount, and reported as queue depth it looks exactly like a congested link: attaching after a pause, the first queue
+// depth reading arrived one second in with the backlog still draining, and abr dropped 606 → 363 → 303 kbps before a
+// single packet had been sent (observed 2026-11-04 17:23:38, QCY MeloBuds Pro). The headphones' buffer is empty at START,
+// so nothing needs to be kept
+- (void)dropBacklog {
+    uint64_t head = atomic_load_explicit(&_written, memory_order_acquire);
+    uint64_t tail = atomic_load_explicit(&_read, memory_order_relaxed);
+    if (head == tail) return;
+    atomic_store_explicit(&_read, head, memory_order_release);
+}
+
 - (size_t)read:(uint8_t *)output frames:(size_t)frames {
     uint64_t head = atomic_load_explicit(&_written, memory_order_acquire);
     uint64_t tail = atomic_load_explicit(&_read, memory_order_relaxed);

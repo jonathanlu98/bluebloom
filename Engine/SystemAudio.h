@@ -30,6 +30,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)stop;
 // Called periodically while streaming is paused: drops old data and keeps only a short recent stretch (not counted as dropped), used as the leading pre-roll on resume
 - (void)keepRecentOnly;
+// Discards everything captured so far (like keepRecentOnly it is not counted as dropped); called when a stream starts, because the headphones' buffer is empty then and older sound would only play late
+- (void)dropBacklog;
 
 @end
 
