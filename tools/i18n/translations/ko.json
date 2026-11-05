@@ -140,7 +140,6 @@
   "Paired": "페어링됨",
   "Pairing failed — is the device in pairing mode?": "페어링 실패 — 기기가 페어링 모드에 있습니까?",
   "Pairing… confirm on your headphones if asked": "페어링 중… 요청하면 헤드폰에서 확인하십시오",
-  "Pause AirDrop and AirPlay discovery while streaming": "스트리밍 중 AirDrop 및 AirPlay 검색 일시 정지",
   "Paused": "일시 정지됨",
   "Pick your headphones": "헤드폰 선택",
   "Playback": "재생",
@@ -222,9 +221,11 @@
   "What macOS uses by default": "macOS 기본값",
   "When off, macOS connects your headphones with its own AAC/SBC.": "끄면 macOS가 자체 AAC/SBC로 헤드폰을 연결합니다.",
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Blue Bloom이 연결된 동안 다른 앱에서는 헤드폰 마이크를 사용할 수 없습니다(통화, 받아쓰기, 녹음 포함).",
-  "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "Wi-Fi와 Bluetooth가 하나의 무선 장치를 공유하는 Mac에서는 Wi-Fi P2P 검색 때문에 소리가 끊깁니다.",
   "macOS": "macOS",
   "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "헤드폰이 Blue Bloom의 리모컨 채널을 거부해서(연결 직후에만 받아들이는 헤드폰도 있습니다) Mac 음량이 소프트웨어로 조절되며 헤드폰 자체 음량에 더해집니다. 소리가 작으면 헤드폰에서 음량을 높이세요. Blue Bloom이 계속 재시도합니다. 이 표시가 사라지지 않으면 헤드폰을 다시 연결하세요.",
   "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": "고정 비트 전송률은 낮출 여유가 없습니다. Bluetooth 연결이 혼잡하면(예: Wi-Fi 사용 중) 소리가 끊길 수 있습니다. 적응형은 연결이 허용하는 한 이 비트 전송률을 사용합니다.",
-  "Can drop out when the link is busy; Adaptive is steadier": "연결이 혼잡하면 끊길 수 있습니다. 적응형이 더 안정적입니다"
+  "Can drop out when the link is busy; Adaptive is steadier": "연결이 혼잡하면 끊길 수 있습니다. 적응형이 더 안정적입니다",
+  "The sound dropped out: the Bluetooth link was busy": "소리가 끊겼습니다: Bluetooth 연결이 혼잡했습니다",
+  "A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards.": "고정 비트레이트는 낮출 여유가 없습니다. macOS가 같은 무선을 사용할 때 끊깁니다. 예를 들어 잠시 자리를 비웠다가 Mac으로 돌아오면 주변 기기를 스캔하고, 사운드 메뉴나 제어 센터를 열 때도 그렇습니다. 적응형은 그동안 비트레이트를 낮췄다가 끝나면 다시 올립니다.",
+  "Use Adaptive": "적응형 사용"
 }

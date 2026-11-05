@@ -140,7 +140,6 @@
   "Paired": "已配对",
   "Pairing failed — is the device in pairing mode?": "配对失败 — 设备是否处于配对模式？",
   "Pairing… confirm on your headphones if asked": "正在配对… 如有提示，请在耳机上确认",
-  "Pause AirDrop and AirPlay discovery while streaming": "推流时暂停隔空投送和隔空播放的发现",
   "Paused": "已暂停",
   "Pick your headphones": "选择你的耳机",
   "Playback": "播放",
@@ -222,9 +221,11 @@
   "What macOS uses by default": "macOS 默认使用",
   "When off, macOS connects your headphones with its own AAC/SBC.": "关闭后，macOS 会用自带的 AAC/SBC 连接耳机。",
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Blue Bloom 连接期间，其他应用无法使用耳机的麦克风——包括通话、听写和录音。",
-  "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "在 Wi-Fi 和蓝牙共用一个射频的 Mac 上，Wi-Fi 点对点扫描会导致断音。",
   "macOS": "macOS",
   "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "耳机拒绝了 Blue Bloom 的遥控通道（有些耳机只在刚连上时接受），Mac 音量改为在软件里调节，叠在耳机自己的音量上。声音偏小时请在耳机上调大。Blue Bloom 会一直重试；如果提示一直不消失，请重新连接耳机。",
   "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": "固定码率没有降档余地：蓝牙链路繁忙时（例如 Wi-Fi 正在使用），声音可能断续。自适应会在链路允许时一直使用这个码率。",
-  "Can drop out when the link is busy; Adaptive is steadier": "链路繁忙时可能断续，自适应更稳定"
+  "Can drop out when the link is busy; Adaptive is steadier": "链路繁忙时可能断续，自适应更稳定",
+  "The sound dropped out: the Bluetooth link was busy": "刚才断音了：蓝牙链路繁忙",
+  "A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards.": "固定码率没有降档余地。macOS 使用同一射频时就会断音，例如你离开一会儿再回到 Mac 时它会扫描附近设备，打开“声音”菜单或控制中心时也会。自适应会在这期间降低码率，结束后再升回去。",
+  "Use Adaptive": "改用自适应"
 }

@@ -17,7 +17,6 @@ enum SettingsKey {
     static let sbcAdaptive = "SBCAdaptive"
     static let aacAdaptive = "AACAdaptive"
     static let autoSwitchOutput = "AutoSwitchOutput"
-    static let awdlSuppress = "AwdlSuppress"
     static let volumeSync = "VolumeSync"
     static let menuBarStyle = "MenuBarStyle"
     static let language = "Language"
@@ -74,7 +73,6 @@ final class AppSettings {
     var sbcAdaptive: Bool { didSet { defaults.set(sbcAdaptive, forKey: SettingsKey.sbcAdaptive) } }
     var aacAdaptive: Bool { didSet { defaults.set(aacAdaptive, forKey: SettingsKey.aacAdaptive) } }
     var autoSwitchOutput: Bool { didSet { defaults.set(autoSwitchOutput, forKey: SettingsKey.autoSwitchOutput) } }
-    var awdlSuppress: Bool { didSet { defaults.set(awdlSuppress, forKey: SettingsKey.awdlSuppress) } }
     var volumeSync: Bool { didSet { defaults.set(volumeSync, forKey: SettingsKey.volumeSync) } }
     var menuBarStyle: MenuBarStyle { didSet { defaults.set(menuBarStyle.rawValue, forKey: SettingsKey.menuBarStyle) } }
     // Version of the first-run notice the user has seen and accepted (WelcomeView.noticeVersion); headphones are not taken over until the latest one is accepted
@@ -97,7 +95,6 @@ final class AppSettings {
             SettingsKey.sbcAdaptive: true,
             SettingsKey.aacAdaptive: true,
             SettingsKey.autoSwitchOutput: true,
-            SettingsKey.awdlSuppress: true,
             SettingsKey.volumeSync: true,
             SettingsKey.menuBarStyle: MenuBarStyle.icon.rawValue,
         ])
@@ -124,7 +121,6 @@ final class AppSettings {
         sbcAdaptive = defaults.bool(forKey: SettingsKey.sbcAdaptive)
         aacAdaptive = defaults.bool(forKey: SettingsKey.aacAdaptive)
         autoSwitchOutput = defaults.bool(forKey: SettingsKey.autoSwitchOutput)
-        awdlSuppress = defaults.bool(forKey: SettingsKey.awdlSuppress)
         volumeSync = defaults.bool(forKey: SettingsKey.volumeSync)
         menuBarStyle = MenuBarStyle(rawValue: defaults.string(forKey: SettingsKey.menuBarStyle) ?? "") ?? .icon
         acceptedNotice = defaults.integer(forKey: SettingsKey.acceptedNotice)

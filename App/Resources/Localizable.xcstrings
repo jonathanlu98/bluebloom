@@ -820,6 +820,52 @@
         }
       }
     },
+    "A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine feste Bitrate kann nicht heruntergehen, wenn macOS dasselbe Funkmodul nutzt, etwa wenn es nach Geräten in der Nähe sucht, sobald du nach einer Pause zum Mac zurückkehrst, oder wenn das Menü „Ton“ oder das Kontrollzentrum geöffnet wird. „Adaptiv“ senkt die Bitrate währenddessen und hebt sie danach wieder an."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una tasa de bits fija no puede bajar cuando macOS usa la misma radio, por ejemplo cuando busca dispositivos cercanos al volver al Mac tras una pausa, o cuando se abre el menú Sonido o el Centro de control. El modo adaptativo baja la tasa de bits mientras tanto y la vuelve a subir después."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un débit fixe ne peut pas baisser quand macOS utilise la même radio, par exemple quand il recherche les appareils à proximité lorsque vous revenez au Mac après une pause, ou quand le menu Son ou le Centre de contrôle s’ouvre. Le mode adaptatif baisse le débit pendant ce temps et le remonte ensuite."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "固定ビットレートには下げる余地がありません。macOS が同じ無線を使うと途切れます。たとえば、しばらく離れてから Mac に戻ったときの周辺デバイスのスキャンや、サウンドメニューやコントロールセンターを開いたときです。適応ならその間はビットレートを下げ、終わったら元に戻します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "고정 비트레이트는 낮출 여유가 없습니다. macOS가 같은 무선을 사용할 때 끊깁니다. 예를 들어 잠시 자리를 비웠다가 Mac으로 돌아오면 주변 기기를 스캔하고, 사운드 메뉴나 제어 센터를 열 때도 그렇습니다. 적응형은 그동안 비트레이트를 낮췄다가 끝나면 다시 올립니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "固定码率没有降档余地。macOS 使用同一射频时就会断音，例如你离开一会儿再回到 Mac 时它会扫描附近设备，打开“声音”菜单或控制中心时也会。自适应会在这期间降低码率，结束后再升回去。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "固定位元率沒有降檔餘地。macOS 使用同一個無線電時就會斷音，例如你離開一會兒再回到 Mac 時它會掃描附近裝置，打開「聲音」選單或控制中心時也會。自適應會在這段期間降低位元率，結束後再升回去。"
+          }
+        }
+      }
+    },
     "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": {
       "localizations": {
         "de": {
@@ -5880,53 +5926,6 @@
         }
       }
     },
-    "Needs the separate AWDL guard helper, which isn't installed.": {
-      "extractionState": "stale",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Benötigt das separate AWDL-Hilfsprogramm, das nicht installiert ist."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Necesita el asistente AWDL independiente, que no está instalado."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nécessite l’assistant AWDL distinct, qui n’est pas installé."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "別途の AWDL ガードヘルパーが必要ですが、インストールされていません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "별도의 AWDL 보호 도우미가 필요하지만 설치되어 있지 않습니다."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "需要另装的 AWDL 守护程序，目前未安装。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "需要另外安裝的 AWDL 守護程式，目前未安裝。"
-          }
-        }
-      }
-    },
     "No devices found yet": {
       "localizations": {
         "de": {
@@ -6659,52 +6658,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在配對⋯ 如有提示，請在耳機上確認"
-          }
-        }
-      }
-    },
-    "Pause AirDrop and AirPlay discovery while streaming": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "AirDrop- und AirPlay-Suche beim Streamen pausieren"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pausar la detección de AirDrop y AirPlay al transmitir"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suspendre la détection AirDrop et AirPlay pendant la diffusion"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ストリーミング中は AirDrop と AirPlay の検出を一時停止"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "스트리밍 중 AirDrop 및 AirPlay 검색 일시 정지"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "推流时暂停隔空投送和隔空播放的发现"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "串流時暫停 AirDrop 和 AirPlay 的搜尋"
           }
         }
       }
@@ -9107,6 +9060,52 @@
         }
       }
     },
+    "The sound dropped out: the Bluetooth link was busy": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Ton ist ausgesetzt: Die Bluetooth-Verbindung war ausgelastet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El sonido se cortó: el enlace Bluetooth estaba saturado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le son a coupé : la liaison Bluetooth était chargée"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音が途切れました：Bluetooth の接続が混雑していました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "소리가 끊겼습니다: Bluetooth 연결이 혼잡했습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刚才断音了：蓝牙链路繁忙"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "剛才斷音了：藍牙連線繁忙"
+          }
+        }
+      }
+    },
     "These are the nominal rates. Some headphones can't take the highest one; Blue Bloom then remembers their limit, and the menu bar panel shows the rate they actually use.": {
       "localizations": {
         "de": {
@@ -9889,6 +9888,52 @@
         }
       }
     },
+    "Use Adaptive": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Adaptiv“ verwenden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar adaptativo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passer en adaptatif"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "適応にする"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "적응형 사용"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "改用自适应"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "改用自適應"
+          }
+        }
+      }
+    },
     "Use Blue Bloom": {
       "localizations": {
         "de": {
@@ -10489,52 +10534,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Blue Bloom 連接期間，其他 App 無法使用耳機的麥克風——包括通話、聽寫與錄音。"
-          }
-        }
-      }
-    },
-    "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Auf Macs, bei denen WLAN und Bluetooth ein Funkmodul teilen, verursachen WLAN-Peer-to-Peer-Suchen Aussetzer."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En los Mac que comparten una radio para Wi-Fi y Bluetooth, las búsquedas Wi-Fi punto a punto provocan cortes."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sur les Mac où le Wi-Fi et le Bluetooth partagent une même radio, les recherches Wi-Fi pair à pair provoquent des coupures."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wi-Fi と Bluetooth が同じ無線を共有する Mac では、Wi-Fi のピアツーピア検索で音途切れが起きます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wi-Fi와 Bluetooth가 하나의 무선 장치를 공유하는 Mac에서는 Wi-Fi P2P 검색 때문에 소리가 끊깁니다."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 Wi-Fi 和蓝牙共用一个射频的 Mac 上，Wi-Fi 点对点扫描会导致断音。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 Wi-Fi 與藍牙共用同一無線電的 Mac 上，Wi-Fi 點對點掃描會造成斷音。"
           }
         }
       }

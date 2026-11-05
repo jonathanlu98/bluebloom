@@ -2,6 +2,26 @@
 
 All notable changes to Blue Bloom are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). Versions before 1.0 are pre-releases.
 
+## [0.1.5] - 2026-11-04
+
+### Added
+
+- When the sound drops out at a fixed bitrate because the Bluetooth link was busy, the menu says so and offers to switch to Adaptive. This happens when macOS scans for nearby devices on the same radio as the stream: for about 15 seconds when you come back to the Mac after a pause, and when the Sound menu or Control Center opens. At a fixed bitrate there is no room left for the scan, most of all at the highest one; Adaptive steps down while it lasts and back up afterwards (#4).
+- Exported diagnostics include the Bluetooth scans macOS started in the last two hours (`radio-activity.log`), to tell whether they caused a dropout. They contain no device names or addresses.
+
+### Removed
+
+- The "Pause AirDrop and AirPlay discovery while streaming" setting (#5). It only worked with a separate helper that was never published, and in tests AirDrop and AirPlay discovery over Wi-Fi peer-to-peer (AWDL) didn't affect the stream: the dropouts came from the Bluetooth scans above. A flag file that 0.1.2 could leave behind is removed.
+- Diagnostics no longer report the AWDL interface.
+
+### Known issues
+
+- The app is not signed with an Apple Developer ID or notarized. macOS blocks it the first time; allow it in System Settings › Privacy & Security. After each update macOS asks for Bluetooth access again.
+- The connection changes in 0.1.3 were tested on macOS 27 with Focal Bathys and Sony WH-1000XM4 headphones only.
+- While Blue Bloom is connected, other apps can't use the headphones' microphone.
+- After Blue Bloom disconnects them, some headphones (observed with Focal Bathys) can't be reached for 20 to 35 seconds.
+- At a fixed bitrate, the sound can drop out while macOS scans for nearby devices (see above). Blue Bloom can't stop these scans.
+
 ## [0.1.4] - 2026-11-04
 
 ### Fixed

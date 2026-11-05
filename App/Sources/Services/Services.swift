@@ -1,4 +1,4 @@
-// Miscellaneous services: log file, virtual device driver installation, headphone buttons to media commands, login item, AirDrop suppression.
+// Miscellaneous services: log file, virtual device driver installation, headphone buttons to media commands, login item, cleanup after earlier versions.
 import AppKit
 import BlueBloomEngine
 import BlueBloomSupport
@@ -216,28 +216,19 @@ enum Compatibility {
     }
 }
 
-// MARK: - Suppress AirDrop/AirPlay while streaming
+// MARK: - Leftovers of earlier versions
 
-// The flag file is created only when "switch on + streaming"; whether suppression actually happens is up to /usr/local/libexec/aptx-awdl-guard (the file path is a contract with it and must not change).
-// The helper is a separate local experiment, not part of Blue Bloom: without it nothing reads the flag, so neither the option nor
-// the flag exists (GitHub issue #5: the option showed for everyone, and logs said "AirDrop/AirPlay paused" when nothing was paused)
-enum AwdlGuard {
-    static let flagPath = "/Users/Shared/.aptx-awdl-suppress"
-
-    static func update(suppress: Bool) {
-        let manager = FileManager.default
-        let present = manager.fileExists(atPath: flagPath)
-        let installed = helperInstalled
-        let wanted = suppress && installed
-        guard wanted != present else { return }
-        if wanted {
-            manager.createFile(atPath: flagPath, contents: nil)
-            BBLogMessage("AirDrop/AirPlay paused")
-        } else {
-            try? manager.removeItem(atPath: flagPath)
-            if installed { BBLogMessage("AirDrop/AirPlay resumed") }
+// Up to 0.1.4, a setting paused AirDrop and AirPlay discovery while streaming, through a separate helper that kept the Wi-Fi
+// peer-to-peer interface (AWDL) down while a flag file existed (GitHub issue #5). It was removed in 0.1.5: measured on 2026-11-04,
+// AWDL activity did not affect the stream, and the dropouts came from Bluetooth LE scans that macOS runs on the same radio.
+// 0.1.2 created the flag file even without the helper; remove one that is left over, and the setting
+enum LegacyCleanup {
+    static func run() {
+        let flagPath = "/Users/Shared/.aptx-awdl-suppress"
+        if FileManager.default.fileExists(atPath: flagPath) {
+            try? FileManager.default.removeItem(atPath: flagPath)
+            BBLogMessage("Removed the AirDrop/AirPlay pause flag file left by an earlier version")
         }
+        UserDefaults.standard.removeObject(forKey: "AwdlSuppress")
     }
-
-    static var helperInstalled: Bool { FileManager.default.fileExists(atPath: "/usr/local/libexec/aptx-awdl-guard") }
 }

@@ -1791,6 +1791,11 @@ static const double kQuietPollInterval = 0.02;
     return _state == SourceStateStreaming ? _streamer.recentKbps : 0;
 }
 
+- (double)droppedSeconds {
+    SystemAudioSource *capture = _systemAudio;
+    return capture && capture.sampleRate > 0 ? (double)capture.droppedFrames / capture.sampleRate : 0;
+}
+
 // Encoder error while streaming: with live capture (idle timer present), close the stream within this session and switch to
 // the next codec by priority without disconnecting the headphones; otherwise end the session
 - (void)encoderFailed:(NSString *)reason {

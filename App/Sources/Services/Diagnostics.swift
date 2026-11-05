@@ -3,7 +3,8 @@
 //     their Device ID record and the codec capability bytes they declared). It has no device or network names or addresses,
 //     so it can be pasted into a public issue as is.
 //   - "Export Diagnostics…": a zip on the Desktop with that summary, Blue Bloom's logs (current and previous), the
-//     Bluetooth section of System Information and the last two hours of the macOS Bluetooth daemon's connection log. The
+//     Bluetooth section of System Information, the last two hours of the macOS Bluetooth daemon's connection log, and of the
+//     Bluetooth scans macOS started in that time (radio-activity.log, see radioActivityPredicate). The
 //     daemon's log shows what the headphones themselves answered (connection refusals, macOS's own connection attempts),
 //     which is often the only way to understand headphones the developer doesn't have.
 // In everything exported, Bluetooth addresses keep only their first three bytes (the vendor prefix) and the home folder
@@ -68,7 +69,6 @@ enum Diagnostics {
 
         section("Wi-Fi")
         lines += wirelessState()
-        lines.append("AirDrop/AirPlay pause while streaming: \(settings.awdlSuppress), AWDL guard helper installed: \(AwdlGuard.helperInstalled)")
 
         section("Headphones")
         let records = model.devices.records.sorted { ($0.value.lastSeen ?? .distantPast) > ($1.value.lastSeen ?? .distantPast) }
@@ -94,9 +94,9 @@ enum Diagnostics {
         return lines.joined(separator: "\n")
     }
 
-    // Wi-Fi and Bluetooth share one radio on many Macs (Apple N1 among them): Wi-Fi scans while it isn't connected and
-    // peer-to-peer activity (AWDL: AirDrop, AirPlay, Sidecar) take airtime from the stream (GitHub issue #4). Only states,
-    // the band and the channel width: no network name, address or channel number, which could help tell the network apart
+    // Wi-Fi and Bluetooth share one radio on many Macs (Apple N1 among them), so what Wi-Fi was doing helps explain dropouts
+    // (GitHub issue #4). Only states, the band and the channel width: no network name, address or channel number, which could
+    // help tell the network apart
     private static func wirelessState() -> [String] {
         var lines: [String] = []
         if let interface = CWWiFiClient.shared().interface() {
@@ -112,8 +112,6 @@ enum Diagnostics {
         } else {
             lines.append("Wi-Fi: no interface")
         }
-        let awdl = interfaceUp("awdl0").map { $0 ? "up" : "down" } ?? "missing"
-        lines.append("AWDL interface (awdl0): \(awdl)")
         return lines
     }
 
@@ -136,17 +134,6 @@ enum Diagnostics {
         }
     }
 
-    // Whether a network interface is up; nil when there is no such interface
-    private static func interfaceUp(_ name: String) -> Bool? {
-        var list: UnsafeMutablePointer<ifaddrs>?
-        guard getifaddrs(&list) == 0, let first = list else { return nil }
-        defer { freeifaddrs(list) }
-        for entry in sequence(first: first, next: { $0.pointee.ifa_next }) where String(cString: entry.pointee.ifa_name) == name {
-            return Int32(entry.pointee.ifa_flags) & IFF_UP != 0
-        }
-        return nil
-    }
-
     private static func hex(_ data: Data) -> String {
         data.map { String(format: "%02X", $0) }.joined(separator: " ")
     }
@@ -167,6 +154,17 @@ enum Diagnostics {
         OR eventMessage CONTAINS "result: 0x76d" OR eventMessage CONTAINS "CBMsgIdRetrieve" OR eventMessage CONTAINS "PairingAgentRetrieve" \
         OR eventMessage CONTAINS "sending sdp data" OR eventMessage CONTAINS "GetPeerState" OR eventMessage CONTAINS "Spatial Mode" \
         OR eventMessage CONTAINS "BundleID does not exist")
+        """
+
+    // What macOS does on the Bluetooth radio that takes airtime from the stream (measured 2026-11-04): sharingd scans for nearby
+    // devices at a high rate for about 15 s when the user comes back to the Mac (activity level Screen → User, "ScanRate High"),
+    // and opening the Sound menu or Control Center makes bluetoothd start a Bluetooth LE scan for nearby accessories. Lining
+    // these up with the dropouts in Blue Bloom's log shows whether they caused them. These lines carry scan flags only, no device
+    // names, addresses or scan filters (bluetoothd's per-process scan requests do, so they are left out)
+    nonisolated private static let radioActivityPredicate = """
+        (process == "sharingd" AND (eventMessage CONTAINS "Activity level changed" OR eventMessage CONTAINS "[Prox] Starting scan")) \
+        OR (process == "ControlCenter" AND eventMessage CONTAINS "setDiscoveryMode") \
+        OR (process == "bluetoothd" AND eventMessage BEGINSWITH "Scan start:")
         """
 
     // Writes BlueBloom-Diagnostics-<date>.zip to the Desktop; the work runs off the main thread (System Information and
@@ -210,6 +208,8 @@ enum Diagnostics {
         try save(run("/usr/sbin/system_profiler", ["SPBluetoothDataType"]), "bluetooth-system-information.txt")
         try save(run("/usr/bin/log", ["show", "--last", systemLogWindow, "--style", "compact", "--predicate", systemLogPredicate]),
                  "bluetoothd.log")
+        try save(run("/usr/bin/log", ["show", "--last", systemLogWindow, "--style", "compact", "--predicate", radioActivityPredicate]),
+                 "radio-activity.log")
         let desktop = manager.urls(for: .desktopDirectory, in: .userDomainMask).first ?? manager.homeDirectoryForCurrentUser
         let zip = desktop.appendingPathComponent(name + ".zip")
         try? manager.removeItem(at: zip)

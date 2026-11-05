@@ -140,7 +140,6 @@
   "Paired": "Enlazado",
   "Pairing failed — is the device in pairing mode?": "Error al enlazar: ¿está el dispositivo en modo de enlace?",
   "Pairing… confirm on your headphones if asked": "Enlazando… confirma en los auriculares si te lo piden",
-  "Pause AirDrop and AirPlay discovery while streaming": "Pausar la detección de AirDrop y AirPlay al transmitir",
   "Paused": "En pausa",
   "Pick your headphones": "Elige tus auriculares",
   "Playback": "Reproducción",
@@ -222,9 +221,11 @@
   "What macOS uses by default": "Lo que usa macOS por omisión",
   "When off, macOS connects your headphones with its own AAC/SBC.": "Si está desactivado, macOS conecta tus auriculares con su propio AAC/SBC.",
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Mientras Blue Bloom está conectado, otras apps no pueden usar el micrófono de los auriculares, incluidas llamadas, dictado y grabación.",
-  "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "En los Mac que comparten una radio para Wi-Fi y Bluetooth, las búsquedas Wi-Fi punto a punto provocan cortes.",
   "macOS": "macOS",
   "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "Los auriculares rechazaron el canal de control remoto de Blue Bloom (algunos solo lo aceptan justo después de conectarse), así que el volumen del Mac se aplica por software sobre el volumen propio de los auriculares. Si suena demasiado bajo, sube el volumen en los auriculares. Blue Bloom sigue reintentando; si este aviso no desaparece, vuelve a conectar los auriculares.",
   "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": "Una tasa fija no puede bajar: si el enlace Bluetooth está saturado, por ejemplo con el Wi-Fi activo, el sonido puede cortarse. El modo adaptativo usa esta tasa siempre que el enlace lo permite.",
-  "Can drop out when the link is busy; Adaptive is steadier": "Puede cortarse si el enlace está saturado; el modo adaptativo es más estable"
+  "Can drop out when the link is busy; Adaptive is steadier": "Puede cortarse si el enlace está saturado; el modo adaptativo es más estable",
+  "The sound dropped out: the Bluetooth link was busy": "El sonido se cortó: el enlace Bluetooth estaba saturado",
+  "A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards.": "Una tasa de bits fija no puede bajar cuando macOS usa la misma radio, por ejemplo cuando busca dispositivos cercanos al volver al Mac tras una pausa, o cuando se abre el menú Sonido o el Centro de control. El modo adaptativo baja la tasa de bits mientras tanto y la vuelve a subir después.",
+  "Use Adaptive": "Usar adaptativo"
 }

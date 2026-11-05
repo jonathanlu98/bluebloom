@@ -244,10 +244,11 @@ struct NowPlayingCard: View {
         let info = CodecInfo.of(configuration.codec)
         let showsFallback = model.fallbackCodec != nil && model.fallbackReason != .none
         let showsVolume = model.isStreaming && model.remoteControlBlocked && model.settings.volumeSync
+        let showsDropouts = model.fixedRateDropouts
         VStack(alignment: .leading, spacing: 12) {
             StreamFormatMenu(configuration: configuration)
             // Notices are grouped, with tighter spacing inside the group
-            if showsFallback || showsVolume {
+            if showsFallback || showsVolume || showsDropouts {
                 VStack(alignment: .leading, spacing: 6) {
                     if showsFallback, let fallback = model.fallbackCodec {
                         Label {
@@ -264,6 +265,18 @@ struct NowPlayingCard: View {
                         .labelStyle(.compact)
                         .font(.system(size: 11)).foregroundStyle(.orange)
                         .help(Text("The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones."))
+                }
+                // Audio was thrown away at a fixed bitrate within the last minute (AppModel.fixedRateDropouts)
+                if showsDropouts {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("The sound dropped out: the Bluetooth link was busy", systemImage: "waveform.badge.exclamationmark")
+                            .labelStyle(.compact)
+                            .font(.system(size: 11)).foregroundStyle(.orange)
+                            .help(Text("A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards."))
+                        Button("Use Adaptive") { model.useAdaptiveBitrate() }
+                            .buttonStyle(.link)
+                            .font(.system(size: 11))
+                    }
                 }
                 }
             }

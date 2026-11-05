@@ -41,6 +41,7 @@ Blue Bloom is a menu bar app that streams your Mac's audio to Bluetooth headphon
 ## Limitations
 
 - While Blue Bloom is connected, other apps can't use the headphones' microphone, including calls, dictation and recording.
+- macOS uses the same Bluetooth radio to scan for nearby devices: for about 15 seconds when you come back to the Mac after a pause, and when the Sound menu or Control Center opens. At a fixed bitrate, especially the highest one, the sound can drop out then; with Adaptive, the bitrate steps down while it lasts. When it happens at a fixed bitrate, the menu says so and offers to switch to Adaptive.
 - Blue Bloom relies on private macOS interfaces, so a macOS update can break it. If that happens, turn Blue Bloom off or quit it.
 
 ## Install

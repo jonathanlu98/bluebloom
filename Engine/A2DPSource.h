@@ -87,6 +87,9 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device);
 @property (nonatomic, readonly) CodecFallbackReason fallbackReason;
 // Over-the-air bitrate over the last 1 second (kbps); 0 when not streaming
 @property (nonatomic, readonly) double recentKbps;
+// Captured audio thrown away because the link could not carry it in time, in seconds, counted since the capture started (it
+// starts again with a new session); what is heard as dropouts. 0 without live capture
+@property (nonatomic, readonly) double droppedSeconds;
 // Playback delay reported by the headphones (ms), 0 if not reported
 @property (nonatomic, readonly) double headsetDelayMs;
 // UUID bluetoothd assigns to these headphones (macOS uses it as the accessory identifier when publishing the headphones' power source); nil until found

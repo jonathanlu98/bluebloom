@@ -140,7 +140,6 @@
   "Paired": "已配對",
   "Pairing failed — is the device in pairing mode?": "配對失敗 — 裝置是否處於配對模式？",
   "Pairing… confirm on your headphones if asked": "正在配對⋯ 如有提示，請在耳機上確認",
-  "Pause AirDrop and AirPlay discovery while streaming": "串流時暫停 AirDrop 和 AirPlay 的搜尋",
   "Paused": "已暫停",
   "Pick your headphones": "選擇你的耳機",
   "Playback": "播放",
@@ -222,9 +221,11 @@
   "What macOS uses by default": "macOS 預設使用",
   "When off, macOS connects your headphones with its own AAC/SBC.": "關閉後，macOS 會使用內建的 AAC/SBC 連線耳機。",
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Blue Bloom 連接期間，其他 App 無法使用耳機的麥克風——包括通話、聽寫與錄音。",
-  "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "在 Wi-Fi 與藍牙共用同一無線電的 Mac 上，Wi-Fi 點對點掃描會造成斷音。",
   "macOS": "macOS",
   "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "耳機拒絕了 Blue Bloom 的遙控通道（有些耳機只在剛連上時接受），Mac 音量改為在軟體中調節，疊加在耳機本身的音量上。聲音偏小時請在耳機上調大。Blue Bloom 會持續重試；如果提示一直沒有消失，請重新連接耳機。",
   "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": "固定位元率沒有降檔餘地：藍牙連線繁忙時（例如 Wi-Fi 正在使用），聲音可能斷續。自適應會在連線允許時一直使用這個位元率。",
-  "Can drop out when the link is busy; Adaptive is steadier": "連線繁忙時可能斷續，自適應更穩定"
+  "Can drop out when the link is busy; Adaptive is steadier": "連線繁忙時可能斷續，自適應更穩定",
+  "The sound dropped out: the Bluetooth link was busy": "剛才斷音了：藍牙連線繁忙",
+  "A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards.": "固定位元率沒有降檔餘地。macOS 使用同一個無線電時就會斷音，例如你離開一會兒再回到 Mac 時它會掃描附近裝置，打開「聲音」選單或控制中心時也會。自適應會在這段期間降低位元率，結束後再升回去。",
+  "Use Adaptive": "改用自適應"
 }

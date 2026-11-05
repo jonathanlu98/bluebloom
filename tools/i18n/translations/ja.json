@@ -140,7 +140,6 @@
   "Paired": "ペアリング済み",
   "Pairing failed — is the device in pairing mode?": "ペアリングに失敗しました — デバイスはペアリングモードですか？",
   "Pairing… confirm on your headphones if asked": "ペアリング中… 求められたらヘッドフォンで確認してください",
-  "Pause AirDrop and AirPlay discovery while streaming": "ストリーミング中は AirDrop と AirPlay の検出を一時停止",
   "Paused": "一時停止中",
   "Pick your headphones": "ヘッドフォンを選択",
   "Playback": "再生",
@@ -222,9 +221,11 @@
   "What macOS uses by default": "macOS の標準",
   "When off, macOS connects your headphones with its own AAC/SBC.": "オフのときは、macOS が標準の AAC/SBC でヘッドフォンに接続します。",
   "While Blue Bloom is connected, other apps can't use the headphones' microphone — calls, dictation and recording included.": "Blue Bloom の接続中は、他のアプリからヘッドホンのマイクを使用できません（通話・ディクテーション・録音を含む）。",
-  "Wi-Fi peer-to-peer scans cause dropouts on Macs that share one radio for Wi-Fi and Bluetooth.": "Wi-Fi と Bluetooth が同じ無線を共有する Mac では、Wi-Fi のピアツーピア検索で音途切れが起きます。",
   "macOS": "macOS",
   "The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones.": "ヘッドフォンが Blue Bloom のリモートコントロールチャネルを拒否したため（接続直後にしか受け付けない機種もあります）、Mac の音量はソフトウェアで調整され、ヘッドフォン本体の音量に重ねて適用されます。音が小さい場合はヘッドフォン側で音量を上げてください。Blue Bloom は再試行を続けます。この表示が消えない場合は、ヘッドフォンを接続し直してください。",
   "A fixed rate has no room to step down: on a busy Bluetooth link, for example while Wi-Fi is active, the sound can drop out. Adaptive uses this rate whenever the link allows.": "固定ビットレートには下げる余地がありません。Bluetooth 接続が混雑すると（Wi-Fi の使用中など）音が途切れることがあります。適応は、接続が許す限りこのビットレートを使います。",
-  "Can drop out when the link is busy; Adaptive is steadier": "接続が混雑すると途切れることがあります。適応の方が安定します"
+  "Can drop out when the link is busy; Adaptive is steadier": "接続が混雑すると途切れることがあります。適応の方が安定します",
+  "The sound dropped out: the Bluetooth link was busy": "音が途切れました：Bluetooth の接続が混雑していました",
+  "A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards.": "固定ビットレートには下げる余地がありません。macOS が同じ無線を使うと途切れます。たとえば、しばらく離れてから Mac に戻ったときの周辺デバイスのスキャンや、サウンドメニューやコントロールセンターを開いたときです。適応ならその間はビットレートを下げ、終わったら元に戻します。",
+  "Use Adaptive": "適応にする"
 }

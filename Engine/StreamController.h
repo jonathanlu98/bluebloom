@@ -43,6 +43,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly, nullable) CodecID fallbackCodec;
 @property (nonatomic, readonly) CodecFallbackReason fallbackReason;
 @property (nonatomic, readonly) double recentKbps;
+@property (nonatomic, readonly) double droppedSeconds;
 @property (nonatomic, readonly) double headsetDelayMs;
 @property (nonatomic, readonly, nullable) NSUUID *deviceIdentifier;
 

@@ -184,6 +184,10 @@
     return _session.recentKbps;
 }
 
+- (double)droppedSeconds {
+    return _session.droppedSeconds;
+}
+
 - (double)headsetDelayMs {
     return _session.headsetDelayMs;
 }

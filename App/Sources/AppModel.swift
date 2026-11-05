@@ -26,6 +26,8 @@ final class AppModel {
     private(set) var remoteVolume: Int = -1
     // The AVRCP channel is held by macOS, so volume can't be handed to the headphone amp (software volume stacks on the headphone amp and may be too quiet)
     private(set) var remoteControlBlocked = false
+    // When captured audio was last thrown away because the Bluetooth link could not carry it: a dropout (see fixedRateDropouts)
+    private(set) var lastDropout: Date?
     private(set) var sourceRate: Double = 0
     // Current sample rate and sample format of the virtual device: apps hand their audio to Blue Bloom in this format; when following the source and Apple Music isn't playing, the stream follows this sample rate
     private(set) var deviceRate: Double = 0
@@ -123,6 +125,7 @@ final class AppModel {
     @ObservationIgnored private let batteryPublisher = BatteryPublisher()
     @ObservationIgnored private var linkDownSince: Date?
     @ObservationIgnored private var switchedOutput = false
+    @ObservationIgnored private var droppedSeconds: Double = 0
     @ObservationIgnored private var stopping = false
     @ObservationIgnored private var startAfterStop = false
     @ObservationIgnored private var connectAfterStop = false
@@ -140,7 +143,7 @@ final class AppModel {
         ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
-        AwdlGuard.update(suppress: false)
+        LegacyCleanup.run()
         waitForBluetooth()
     }
 
@@ -186,6 +189,44 @@ final class AppModel {
     var activeBattery: BatteryLevels? { activeDevice.flatMap(battery(for:)) }
 
     var activeCodec: A2DPCodec? { configuration.flatMap { A2DPCodec.codec(id: $0.codec) } }
+
+    // The stream dropped out within the last minute at a fixed bitrate, and the codec has an adaptive mode that would have stepped
+    // down instead. macOS scanning for nearby devices on the same radio (for about 15 s when the user comes back to the Mac, and
+    // when the Sound menu or Control Center opens) leaves a fixed bitrate without room, most of all the highest one (measured
+    // 2026-11-04); the menu says so and offers Adaptive
+    var fixedRateDropouts: Bool {
+        guard isStreaming, let lastDropout, Date().timeIntervalSince(lastDropout) < 60, let codec = activeCodec else { return false }
+        return isFixedWithAdaptiveAvailable(codec)
+    }
+
+    // A fixed bitrate while the codec has an adaptive mode: the Adaptive tier among the presets, or the AAC and SBC switches
+    func isFixedWithAdaptiveAvailable(_ codec: A2DPCodec) -> Bool {
+        if !codec.presets.isEmpty {
+            return codec.presets.contains(where: \.isAdaptive) && settings.preset(for: codec)?.isAdaptive == false
+        }
+        switch codec.identifier {
+        case .aac: return !settings.aacAdaptive
+        case .sbc: return !settings.sbcAdaptive
+        default: return false
+        }
+    }
+
+    // "Use Adaptive" in the dropout notice: switch the current codec to its adaptive mode
+    func useAdaptiveBitrate() {
+        guard let codec = activeCodec else { return }
+        if let adaptive = codec.presets.first(where: \.isAdaptive) {
+            settings.codecPresets[codec.identifier] = adaptive.identifier
+        } else if codec.identifier == .aac {
+            settings.aacAdaptive = true
+        } else if codec.identifier == .sbc {
+            settings.sbcAdaptive = true
+        } else {
+            return
+        }
+        lastDropout = nil
+        BBLogMessage("Switched \(codec.displayName) to adaptive bitrate from the dropout notice")
+        codecSettingsChanged()
+    }
 
     // Codecs available on the current device (implemented here and supported by the headphones), in priority order
     var availableCodecs: [CodecID] {
@@ -322,15 +363,8 @@ final class AppModel {
         // -1 when the engine has no battery level (HFP not held by Blue Bloom, session reconnecting); the UI then uses the one recorded by the system
         self.battery = battery
         refreshSessionInfo()
-        applyAwdlSuppress()
         updateOutputRouting(previous: previous)
         publishBattery()
-    }
-
-    // AirDrop/AirPlay discovery is paused only while streaming; also called when the setting changes, so turning it off resumes them
-    // at once instead of at the next status change
-    func applyAwdlSuppress() {
-        AwdlGuard.update(suppress: settings.awdlSuppress && status == .streaming)
     }
 
     // While Blue Bloom holds HFP the system gets no battery level: publish what the gateway received to the system; while macOS holds HFP the gateway has no value and the system publishes it itself
@@ -357,6 +391,16 @@ final class AppModel {
     // Every second: bitrate graph, session info, system state
     private func tick() {
         liveKbps = isStreaming ? controller?.recentKbps ?? 0 : 0
+        // Audio thrown away since the last tick is a dropout (the count starts again with a new session)
+        let dropped = controller?.droppedSeconds ?? 0
+        if isStreaming, dropped > droppedSeconds + 0.02 {
+            if !fixedRateDropouts, let codec = activeCodec, isFixedWithAdaptiveAvailable(codec) {
+                BBLogMessage(String(format: "Dropout at a fixed %@ bitrate (%.2f s of audio thrown away): the menu suggests Adaptive",
+                                    codec.displayName, dropped - droppedSeconds))
+            }
+            lastDropout = Date()
+        }
+        droppedSeconds = dropped
         bitrateHistory.append(liveKbps)
         if bitrateHistory.count > Self.historyLength { bitrateHistory.removeFirst(bitrateHistory.count - Self.historyLength) }
         refreshSessionInfo()
@@ -503,7 +547,7 @@ final class AppModel {
         startController()
     }
 
-    // Uninstall: close the stream and release the headphones first, then delete the driver (needs the administrator password; cancelling aborts it all and resumes streaming), then remove the login item, the AirDrop suppression flag,
+    // Uninstall: close the stream and release the headphones first, then delete the driver (needs the administrator password; cancelling aborts it all and resumes streaming), then remove the login item,
     // settings and log, move the app to the Trash and quit
     func uninstall() {
         guard !Snapshot.isActive, !uninstalling else { return }
@@ -518,7 +562,6 @@ final class AppModel {
                 return
             }
             LoginItem.set(false)
-            AwdlGuard.update(suppress: false)
             try? FileManager.default.removeItem(at: LogFile.url)
             try? FileManager.default.removeItem(at: LogFile.previousURL)
             // The callback isn't guaranteed to run on the main thread
@@ -597,7 +640,6 @@ final class AppModel {
 
     // Before quitting, close the stream and hand back the headphones and sound output
     func prepareForQuit(_ done: @escaping () -> Void) {
-        AwdlGuard.update(suppress: false)
         batteryPublisher.remove()
         // Pause before closing the stream, so the song stops where it was heard in the headphones
         pausePlayback {
