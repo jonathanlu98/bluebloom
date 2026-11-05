@@ -2,6 +2,19 @@
 
 All notable changes to Blue Bloom are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). Versions before 1.0 are pre-releases.
 
+## [1.0.0] - 2026-11-04
+
+First stable release. It is the same as 0.1.5; the sections below describe how Blue Bloom got here.
+
+### Known issues
+
+- The app is not signed with an Apple Developer ID or notarized. macOS blocks it the first time; allow it in System Settings › Privacy & Security. After each update macOS asks for Bluetooth access again.
+- Connecting was tested on macOS 27 with Focal Bathys and Sony WH-1000XM4 headphones; other headphones may behave differently (#2).
+- While Blue Bloom is connected, other apps can't use the headphones' microphone.
+- After Blue Bloom disconnects them, some headphones (observed with Focal Bathys) can't be reached for 20 to 35 seconds.
+- At a fixed bitrate, the sound can drop out while macOS scans for nearby devices on the same Bluetooth radio, for example when you come back to the Mac after a pause or open the Sound menu or Control Center. Use Adaptive to avoid that; Blue Bloom can't stop these scans (#4).
+- With LDAC, Adaptive can switch back and forth between two bitrates on some headphones (#8).
+
 ## [0.1.5] - 2026-11-04
 
 ### Added
