@@ -3,6 +3,8 @@
 
 #import <Foundation/Foundation.h>
 #import <IOBluetooth/IOBluetooth.h>
+#import <CoreAudio/CoreAudio.h>
+#import <AudioToolbox/AudioServices.h>
 #include <math.h>
 #include <signal.h>
 #include "freeaptx.h"
@@ -180,6 +182,128 @@ static CodecOptions *OptionsFromArguments(NSArray<NSString *> *arguments) {
     return options;
 }
 
+#pragma mark - Mac volume and the headphones (--system)
+
+// A mute or listener address on the default output device (the muted speakers while streaming)
+static AudioObjectPropertyAddress VolumeAddress(AudioObjectPropertySelector selector, UInt32 element) {
+    return (AudioObjectPropertyAddress){ selector, kAudioDevicePropertyScopeOutput, element };
+}
+
+static AudioObjectID DefaultOutput(void) {
+    AudioObjectPropertyAddress address = { kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain };
+    AudioObjectID device = kAudioObjectUnknown;
+    UInt32 size = sizeof(device);
+    AudioObjectGetPropertyData(kAudioObjectSystemObject, &address, 0, NULL, &size, &device);
+    return device;
+}
+
+// The volume the menu bar shows: AudioToolbox's virtual main volume, which is the main element or the channels with
+// their balance kept
+static AudioObjectPropertyAddress MainVolumeAddress(void) {
+    return (AudioObjectPropertyAddress){ kAudioHardwareServiceDeviceProperty_VirtualMainVolume, kAudioDevicePropertyScopeOutput,
+                                         kAudioObjectPropertyElementMain };
+}
+
+static BOOL ReadRawVolume(AudioObjectID device, Float32 *volume) {
+    AudioObjectPropertyAddress address = MainVolumeAddress();
+    UInt32 size = sizeof(*volume);
+    return AudioObjectHasProperty(device, &address) &&
+           AudioObjectGetPropertyData(device, &address, 0, NULL, &size, volume) == noErr;
+}
+
+// 0 while muted (the mute of the main element, else of channel 1)
+static BOOL ReadMacVolume(AudioObjectID device, Float32 *volume) {
+    if (!ReadRawVolume(device, volume)) return NO;
+    for (UInt32 element = 0; element <= 1; element++) {
+        AudioObjectPropertyAddress address = VolumeAddress(kAudioDevicePropertyMute, element);
+        UInt32 muted = 0;
+        UInt32 size = sizeof(muted);
+        if (AudioObjectHasProperty(device, &address) && AudioObjectGetPropertyData(device, &address, 0, NULL, &size, &muted) == noErr) {
+            if (muted) *volume = 0;
+            break;
+        }
+    }
+    return YES;
+}
+
+static void WriteMacVolume(AudioObjectID device, Float32 volume) {
+    AudioObjectPropertyAddress address = MainVolumeAddress();
+    if (AudioObjectHasProperty(device, &address)) AudioObjectSetPropertyData(device, &address, 0, NULL, sizeof(volume), &volume);
+}
+
+// --system: the tap takes the sound before the Mac's volume, so the volume keys would only turn the muted speakers. Their volume goes
+// to the headphones' amplifier instead (AVRCP absolute volume, 0–127), and the headphones' own volume (swipe, buttons)
+// moves the Mac's, so the keys, the menu bar and the headphones stay in step. Starts from the headphones' volume: no jump.
+static AudioObjectID watched = kAudioObjectUnknown;  // the Mac output whose volume follows the headphones
+static Float32 before = -1;                          // its volume before we first set it
+
+static void SetMacVolume(Float32 volume) {
+    if (before < 0 && !ReadRawVolume(watched, &before)) before = -1;
+    WriteMacVolume(watched, volume);
+}
+
+// When the session ends (the headphones report no volume any more), the tool exits or the output changes, the Mac
+// output gets its own volume back: the speakers play at the level they had, not at the headphones'
+static void RestoreMacVolume(void) {
+    if (before >= 0) WriteMacVolume(watched, before);
+    before = -1;
+}
+
+static void SyncVolume(id controller) {
+    static int remote = -1;          // what the headphones have now; -1 without an AVRCP channel
+    static Float32 written = -1;     // the Mac volume we just set from the headphones: its echo is not sent back
+    __weak id weak = controller;
+    static AudioObjectPropertyListenerBlock changed;
+    changed = ^(UInt32 count, const AudioObjectPropertyAddress *addresses) {
+        Float32 volume;
+        if (remote < 0 || !ReadMacVolume(watched, &volume) || fabsf(volume - written) < 0.5f / 127) return;
+        written = -1;
+        int target = (int)lroundf(volume * 127);
+        if (target != remote && [weak setRemoteVolume:target]) {
+            BBLog(@"Volume: Mac %.0f%% → headphones %d/127", volume * 100, target);
+            remote = target;
+        }
+    };
+    static void (^watch)(void);
+    watch = ^{
+        RestoreMacVolume();
+        AudioObjectPropertySelector selectors[] = { kAudioDevicePropertyVolumeScalar, kAudioDevicePropertyMute };
+        for (int pass = 0; pass < 2; pass++) {
+            AudioObjectID device = pass == 0 ? watched : DefaultOutput();
+            for (int s = 0; s < 2; s++) {
+                for (UInt32 element = 0; element <= 2; element++) {
+                    AudioObjectPropertyAddress address = VolumeAddress(selectors[s], element);
+                    if (device == kAudioObjectUnknown || !AudioObjectHasProperty(device, &address)) continue;
+                    if (pass == 0) AudioObjectRemovePropertyListenerBlock(device, &address, dispatch_get_main_queue(), changed);
+                    else AudioObjectAddPropertyListenerBlock(device, &address, dispatch_get_main_queue(), changed);
+                }
+            }
+            if (pass == 1) watched = device;
+        }
+        // The new device takes the headphones' volume, as at the start
+        if (remote >= 0) SetMacVolume(written = remote / 127.0f);
+    };
+    watch();
+    // The default output moves from the headphones to the speakers at the takeover
+    AudioObjectPropertyAddress defaultAddress = { kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain };
+    AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &defaultAddress, dispatch_get_main_queue(),
+                                        ^(UInt32 count, const AudioObjectPropertyAddress *addresses) { watch(); });
+    [controller setRemoteVolumeHandler:^(int volume) {
+        // An echo of what we just sent changes nothing: after a mute, the headphones' 0 would otherwise reach the Mac
+        // and the unmute would find nothing to send
+        if (volume == remote) return;
+        remote = volume;
+        if (volume < 0) {
+            // The session ended (headphones off or gone) while the tool waits for them: the speakers play again
+            RestoreMacVolume();
+            return;
+        }
+        written = volume / 127.0f;
+        SetMacVolume(written);
+    }];
+    atexit(RestoreMacVolume);
+}
+
 #pragma mark - Codec-layer smoke test: without headphones, run configure -> create encoder -> encode with a capability element where "the headphones support everything"
 
 // Unit tests for the sample rate selection rules (A2DPBestSampleRate)
@@ -338,6 +462,7 @@ int main(int argc, const char *argv[]) {
             // Resident: connect once, then take the headphones whenever they connect by themselves (StreamController never retries on its own); takes audio from the virtual device by default, --system captures system-wide audio instead
             StreamController *controller = [[StreamController alloc] initWithDevice:device virtualDevice:![arguments containsObject:@"--system"]];
             controller.optionsProvider = ^CodecOptions *{ return options; };
+            if ([arguments containsObject:@"--system"]) SyncVolume(controller);
             signal(SIGINT, SIG_IGN);
             dispatch_source_t interrupt = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGINT, 0, dispatch_get_main_queue());
             dispatch_source_set_event_handler(interrupt, ^{ [controller stopWithCompletion:^{ exit(0); }]; });
@@ -356,6 +481,7 @@ int main(int argc, const char *argv[]) {
                                                    systemAudio:[arguments containsObject:@"--system"]];
         source.useVirtualDevice = [arguments containsObject:@"--device"];
         source.options = options;
+        if ([arguments containsObject:@"--system"]) SyncVolume(source);
         signal(SIGINT, SIG_IGN);
         dispatch_source_t interrupt = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGINT, 0, dispatch_get_main_queue());
         dispatch_source_set_event_handler(interrupt, ^{ [source stopWithReason:@"Interrupted by user" exitCode:130]; });
