@@ -230,6 +230,15 @@ static const double kDepthWarmupSeconds = 1;
 // When streaming cannot keep up we stop encoding first, so the backlog sits in the capture buffer and counting only pending packets would always give 0–1; subtract 12ms of fetch jitter (the virtual device is fetched every 10ms)
 - (NSUInteger)queueDepth {
     NSUInteger depth = _pending.count;
+    if (!_capture && _packets > 0) {
+        // File playback has no capture backlog, so a link that cannot keep up only shows as the sent audio falling behind the
+        // clock: count that lag in packets too, or adaptive bitrate never sees it and never steps down
+        double framesPerPacket = (double)_framesConsumed / (double)(_packets + _pending.count);
+        double elapsed = BBTicksToSeconds(mach_absolute_time() - _startTicks);
+        double lag = elapsed * _rate + kPrefillCalls * _encoder.framesPerCall - (double)_framesConsumed - _rate * 0.012;
+        if (lag > 0 && framesPerPacket > 0) depth += (NSUInteger)(lag / framesPerPacket);
+        return depth;
+    }
     if (!_capture || _packets == 0) return depth;
     double framesPerPacket = (double)_framesConsumed / (double)(_packets + _pending.count);
     double backlog = (double)[_source availableFrames] - _rate * 0.012;
