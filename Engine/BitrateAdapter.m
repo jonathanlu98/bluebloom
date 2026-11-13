@@ -1,4 +1,6 @@
 #import "BitrateAdapter.h"
+#include <stdatomic.h>
+#import "BBExperiments.h"
 #import "BBLog.h"
 #include <os/lock.h>
 
@@ -10,6 +12,13 @@ static const double kProbeFailSeconds = 3;
 static const double kProbeHoldSeconds = 30;
 static const double kBackoffInitial = 30;
 static const double kBackoffMax = 300;
+
+// Experiment (BBExperiments slowABR): wait longer before trying a higher tier, and much longer after a failed attempt,
+// so the bitrate does not bounce between two tiers at the edge of what the link carries. Not evaluated yet
+static double RaiseSeconds(void) { return [BBExperiments shared].slowABR ? 15 : kRaiseSeconds; }
+static double ProbeHoldSeconds(void) { return [BBExperiments shared].slowABR ? 60 : kProbeHoldSeconds; }
+static double BackoffInitial(void) { return [BBExperiments shared].slowABR ? 120 : kBackoffInitial; }
+static double BackoffMax(void) { return [BBExperiments shared].slowABR ? 600 : kBackoffMax; }
 
 typedef struct {
     int ceiling;        // highest tier allowed while locked out (-1 not locked)
@@ -34,6 +43,9 @@ static os_unfair_lock gGuardLock = OS_UNFAIR_LOCK_INIT;
     int _probeTier;     // tier just raised to and still under observation (-1 none)
     double _probeStart;
     int _failedTier;    // tier of the most recent failed trial raise: only holding at it or a higher tier counts as the link improving and resets the backoff
+    _Atomic(double) _bracePending;  // braceFor: seconds requested, taken at the next update
+    double _braceUntil;
+    int _braceTier;     // highest tier allowed until _braceUntil
 }
 
 - (instancetype)initWithName:(NSString *)name tierKbps:(NSArray<NSNumber *> *)tierKbps startTier:(int)start key:(NSString *)key {
@@ -46,7 +58,7 @@ static os_unfair_lock gGuardLock = OS_UNFAIR_LOCK_INIT;
         _ceiling = -1;
         _probeTier = -1;
         _failedTier = -1;
-        _backoff = kBackoffInitial;
+        _backoff = BackoffInitial();
         os_unfair_lock_lock(&gGuardLock);
         NSValue *saved = gGuards[key];
         os_unfair_lock_unlock(&gGuardLock);
@@ -98,8 +110,23 @@ static os_unfair_lock gGuardLock = OS_UNFAIR_LOCK_INIT;
     _tier = tier;
 }
 
+- (void)braceFor:(double)seconds {
+    atomic_store(&_bracePending, seconds);
+}
+
 - (BOOL)updateWithDepth:(NSUInteger)depth seconds:(double)seconds {
     _clock += seconds;
+    double brace = atomic_exchange(&_bracePending, 0.0);
+    if (brace > 0) {
+        _braceUntil = _clock + brace;
+        _braceTier = MIN(_tier + 1, _tierCount - 1);
+        _calmSince = _clock;
+        if (_braceTier != _tier) {
+            _probeTier = -1;
+            [self moveTo:_braceTier reason:[NSString stringWithFormat:@"bracing for Bluetooth scanning for %.0f s", brace]];
+            return YES;
+        }
+    }
     BOOL blocking = _ceiling >= 0 && _clock < _ceilingUntil;
     if (!blocking) _ceiling = -1;
     if (depth > 0) _calmSince = _clock;
@@ -111,28 +138,29 @@ static os_unfair_lock gGuardLock = OS_UNFAIR_LOCK_INIT;
             _ceiling = _probeTier + 1;
             _ceilingUntil = _clock + _backoff;
             BBLog(@"%@ adaptive bitrate: link cannot sustain %.0f kbps, not trying this tier again for %.0f s", _name, _tierKbps[_probeTier].doubleValue, _backoff);
-            _backoff = MIN(_backoff * 2, kBackoffMax);
+            _backoff = MIN(_backoff * 2, BackoffMax());
         }
         _probeTier = -1;
         _lastDrop = _clock;
         [self moveTo:tier reason:[NSString stringWithFormat:@"backlog %lu packets", (unsigned long)depth]];
         return YES;
     }
-    if (_probeTier >= 0 && _clock - _probeStart >= kProbeHoldSeconds) {
+    if (_probeTier >= 0 && _clock - _probeStart >= ProbeHoldSeconds()) {
         // Failing at tier A, dropping lower, then settling at a tier below A does not show that A can hold, so do not reset (same as ldac_a2dp.c guard_after_abr)
         if (_failedTier < 0 || _probeTier <= _failedTier) {
-            _backoff = kBackoffInitial;
+            _backoff = BackoffInitial();
             _failedTier = -1;
         }
         _probeTier = -1;
     }
-    if (depth == 0 && _clock - _calmSince >= kRaiseSeconds && _tier > _topTier) {
+    if (depth == 0 && _clock - _calmSince >= RaiseSeconds() && _tier > _topTier) {
         int tier = _tier - 1;
         if (_ceiling >= 0 && tier < _ceiling) return NO;
+        if (_clock < _braceUntil && tier < _braceTier) return NO;
         _probeTier = tier;
         _probeStart = _clock;
         _calmSince = _clock;
-        [self moveTo:tier reason:[NSString stringWithFormat:@"no backlog for %.0f s", kRaiseSeconds]];
+        [self moveTo:tier reason:[NSString stringWithFormat:@"no backlog for %.0f s", RaiseSeconds()]];
         return YES;
     }
     return NO;

@@ -128,6 +128,15 @@
         [self launch];
         return;
     }
+    if (exitCode == SourceExitForceNewLink) {
+        BBLog(@"Force new link (experiment): connecting again in 1 s");
+        _connectRequested = YES;
+        NSUInteger current = _generation;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            if (self->_running && !self->_session && self->_generation == current) [self launch];
+        });
+        return;
+    }
     // Never retry on our own (each attempt is another contest with macOS for the headphones, and pages that find no headphones
     // hold up the radio): wait for the headphones to connect by themselves right away, which also catches bluetoothd reconnecting
     // within a second after the link dropped (observed 0.3 s after link timeouts, 2026-10-18). A session that was streaming
@@ -186,6 +195,10 @@
 
 - (double)droppedSeconds {
     return _session.droppedSeconds;
+}
+
+- (void)braceFor:(double)seconds {
+    [_session braceFor:seconds];
 }
 
 - (double)headsetDelayMs {

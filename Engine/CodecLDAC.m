@@ -91,6 +91,13 @@ static os_unfair_lock gAbrGuardLock = OS_UNFAIR_LOCK_INIT;
     ldac_a2dp_set_queue_depth(_ldac, (int)MIN(depth, (NSUInteger)255));
 }
 
+// The tier change shows in the next "LDAC adaptive bitrate" log line
+- (void)braceFor:(double)seconds {
+    if (!_adaptive) return;
+    BBLog(@"LDAC adaptive bitrate: bracing for Bluetooth scanning for %.0f s", seconds);
+    ldac_a2dp_brace(_ldac, seconds);
+}
+
 - (NSArray<NSData *> *)encode:(const uint8_t *)pcm error:(NSString **)error {
     char message[200] = {0};
     size_t packetFrames = 0;

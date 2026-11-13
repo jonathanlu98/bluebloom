@@ -21,6 +21,8 @@ static const double kProbeFailSeconds = 3;
 static const double kProbeHoldSeconds = 30;
 static const double kBackoffInitial = 30;
 static const double kBackoffMax = 300;
+// Lowest tier ABR can reach (MQ, see rank_of)
+static const int kLowestRank = 4;
 
 static int rank_of(int eqmid);
 
@@ -42,6 +44,9 @@ struct ldac_a2dp {
     int last_rank;
     int blocked_kbps;          // tier just blocked, for ldac_a2dp_take_abr_block
     double blocked_seconds;
+    double brace_pending;      // ldac_a2dp_brace: seconds requested, taken at the next ABR tick
+    int brace_rank;            // highest tier allowed until brace_until (-1 none)
+    double brace_until;
     uint8_t mono[LDACBT_ENC_LSU * 3];
     uint8_t stream[LDACBT_MAX_NBYTES];
 };
@@ -128,6 +133,7 @@ ldac_a2dp *ldac_a2dp_open(int sample_rate, int channel_mode, int quality, size_t
         codec->abr_interval_frames = (size_t)sample_rate * kAbrIntervalMs / 1000;
         codec->abr_elapsed_frames = codec->abr_interval_frames;  // run once on the first tick, as Android does
         codec->ceiling = -1;
+        codec->brace_rank = -1;
         codec->backoff = kBackoffInitial;
         codec->failed_rank = -1;
         codec->last_rank = rank_of(eqmid);
@@ -158,14 +164,30 @@ static int current_rank(const ldac_a2dp *codec) {
     return rank_of(ldacBT_get_eqmid(codec->bt));
 }
 
-// When the current tier is above the highest allowed tier, pull it down (one tier per step, in bitrate order, through the
-// same interface ABR uses to step down)
-static int clamp_to_ceiling(ldac_a2dp *codec) {
+// When the current tier is above the highest allowed tier (limit), pull it down (one tier per step, in bitrate order, through
+// the same interface ABR uses to step down)
+static int clamp_to(ldac_a2dp *codec, int limit) {
     int rank = current_rank(codec);
-    while (rank >= 0 && rank < codec->ceiling && ldacBT_alter_eqmid_priority(codec->bt, LDACBT_EQMID_INC_CONNECTION) == 0) {
+    while (rank >= 0 && rank < limit && ldacBT_alter_eqmid_priority(codec->bt, LDACBT_EQMID_INC_CONNECTION) == 0) {
         rank = current_rank(codec);
     }
     return rank;
+}
+
+// Ahead of known radio activity (see ldac_a2dp_brace): one tier down now, and no step-up above it until brace_until. Not a
+// congestion drop: a step-up under observation is not judged by it, and nothing is blocked
+static void start_brace(ldac_a2dp *codec) {
+    codec->brace_until = codec->clock + codec->brace_pending;
+    codec->brace_pending = 0;
+    int rank = current_rank(codec);
+    if (rank < 0) return;
+    codec->brace_rank = rank + 1 > kLowestRank ? kLowestRank : rank + 1;
+    codec->probe_rank = -1;
+    codec->last_rank = clamp_to(codec, codec->brace_rank);
+}
+
+void ldac_a2dp_brace(ldac_a2dp *codec, double seconds) {
+    if (codec->abr && seconds > 0) codec->brace_pending = seconds;
 }
 
 // After each ldac_ABR_Proc: while blocked, do not allow stepping above the ceiling; if a step-up drops back soon, block that
@@ -176,9 +198,13 @@ static void guard_after_abr(ldac_a2dp *codec) {
     double now = codec->clock;
     bool blocking = codec->ceiling >= 0 && now < codec->ceiling_until;
     if (!blocking) codec->ceiling = -1;
+    bool bracing = codec->brace_rank >= 0 && now < codec->brace_until;
+    if (!bracing) codec->brace_rank = -1;
     if (rank < codec->last_rank) {
-        if (blocking && rank < codec->ceiling) {
-            rank = clamp_to_ceiling(codec);
+        int limit = blocking ? codec->ceiling : -1;
+        if (bracing && codec->brace_rank > limit) limit = codec->brace_rank;
+        if (limit >= 0 && rank < limit) {
+            rank = clamp_to(codec, limit);
         } else {
             codec->probe_rank = rank;
             codec->probe_start = now;
@@ -229,7 +255,7 @@ void ldac_a2dp_set_abr_guard(ldac_a2dp *codec, const ldac_abr_guard *guard) {
     codec->ceiling = guard->ceiling;
     codec->ceiling_until = codec->clock + guard->remaining;
     // Start below the blocked tier; the start no longer counts as an attempt
-    codec->last_rank = clamp_to_ceiling(codec);
+    codec->last_rank = clamp_to(codec, codec->ceiling);
     codec->probe_rank = -1;
 }
 
@@ -251,6 +277,7 @@ int ldac_a2dp_encode(ldac_a2dp *codec, const uint8_t *pcm24, uint8_t *out, size_
     if (codec->abr) {
         if (codec->abr_elapsed_frames >= codec->abr_interval_frames) {
             codec->abr_elapsed_frames -= codec->abr_interval_frames;
+            if (codec->brace_pending > 0) start_brace(codec);
             // flagEnable=1: allow ABR to change tier (encoder.cc L353-357)
             if (ldac_ABR_Proc(codec->bt, codec->abr, codec->queue_depth, 1) < 0) {
                 fail_ldac(error, error_size, "ldac_ABR_Proc failed", codec->bt);

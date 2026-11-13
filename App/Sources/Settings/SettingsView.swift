@@ -13,6 +13,32 @@ struct SettingsView: View {
             AboutPane().tabItem { Label("About", systemImage: "info.circle") }
         }
         .frame(width: 560)
+        .background(NoInitialFocus())
+    }
+}
+
+// With keyboard navigation on (System Settings › Keyboard), the Settings window opens with its first toolbar tab as the
+// first responder, and "General" keeps a focus ring whichever tab is selected. Start with nothing focused instead; Tab
+// still moves through the tabs and controls
+private struct NoInitialFocus: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { Probe() }
+    func updateNSView(_ view: NSView, context: Context) {}
+
+    final class Probe: NSView {
+        private var observer: NSObjectProtocol?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+            observer = nil
+            guard let window else { return }
+            // The window picks its first responder when it is first shown, so clear it once it has become key
+            observer = NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main) { [weak self, weak window] _ in
+                if let observer = self?.observer { NotificationCenter.default.removeObserver(observer) }
+                self?.observer = nil
+                DispatchQueue.main.async { window?.makeFirstResponder(nil) }
+            }
+        }
     }
 }
 
@@ -371,6 +397,8 @@ struct AdvancedPane: View {
     @Environment(AppModel.self) private var model
     @State private var confirmReset = false
     @State private var confirmUninstall = false
+    // Option-clicking the version in the About pane shows the Experiments section (ExperimentsSections)
+    @AppStorage(BBExperimentsVisibleKey) private var showExperiments = false
 
     var body: some View {
         Form {
@@ -406,6 +434,7 @@ struct AdvancedPane: View {
             } footer: {
                 Text(verbatim: LogFile.url.path).font(.caption).foregroundStyle(.tertiary)
             }
+            if showExperiments { ExperimentsSections() }
             Section {
                 Button("Reset All Settings…", role: .destructive) { confirmReset = true }
                     .disabled(Snapshot.isActive)
@@ -448,6 +477,8 @@ struct AboutPane: View {
     @State private var copied = false
     @State private var exporting = false
     @State private var exportError: String?
+    @AppStorage(BBExperimentsVisibleKey) private var showExperiments = false
+    @State private var experimentsNotice = false
 
     // Public repository; the About pane links to it as the project page (issues, releases)
     static let projectURL: URL? = URL(string: "https://github.com/jonathanlu98/bluebloom")
@@ -462,6 +493,18 @@ struct AboutPane: View {
                 Text("Version \(AppModel.appVersion) (\(AppModel.appBuild))")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    // Option-click shows or hides Settings › Advanced › Experiments, which is hidden until then
+                    .onTapGesture {
+                        guard NSEvent.modifierFlags.contains(.option), !Snapshot.isActive else { return }
+                        showExperiments.toggle()
+                        experimentsNotice = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { experimentsNotice = false }
+                    }
+                if experimentsNotice {
+                    Text(verbatim: showExperiments ? "Experiments are now in Settings › Advanced" : "Experiments are hidden")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
                 // A local build (tools/install-app.sh, may include private codecs) says so, with the commit it came from
                 if !AppModel.isReleaseBuild {
                     Text("Local build · \(AppModel.sourceCommit)")

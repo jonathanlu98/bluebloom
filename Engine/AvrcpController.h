@@ -34,6 +34,8 @@ typedef NS_ENUM(uint8_t, AvrcpOperation) {
 - (instancetype)initWithSocket:(L2CAPSocket *)socket;
 // Query the headphones' capabilities and subscribe to volume changes if absolute volume is supported
 - (void)start;
+// Experiments: send a GetCapabilities request whose answer is ignored, as traffic on the link while the stream is suspended
+- (void)sendKeepalive;
 - (void)setAbsoluteVolume:(int)volume;
 - (void)close;
 

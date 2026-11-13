@@ -30,6 +30,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)applyConfiguration:(CodecConfiguration *)configuration;
 // On return, nothing more will be sent on the streaming queue (the socket can then be closed safely)
 - (void)pause;
+// Has an adaptive encoder hold one tier lower for this long (A2DPEncoder braceFor:, run on the streaming queue)
+- (void)braceFor:(double)seconds;
 - (void)logTotals;
 @end
 

@@ -305,8 +305,8 @@ static NSString *StatusText(OSStatus status) {
 
 // The capture keeps running while nothing streams, so at START the buffer holds sound from before it (up to the 125 ms that
 // keepRecentOnly keeps plus a 200 ms idle tick, and the START round trip). Sending that at once overfills the headphones before
-// they start playing, and the stream then loses more than it kept (GitHub PR #6 by SugarMGP; measured with Focal Bathys and
-// aptX Adaptive on 2026-11-04, resuming from idle six times each):
+// they start playing, and the stream then loses more than it kept (GitHub PR #6 by SugarMGP; measured with Focal Bathys
+// on 2026-11-04, resuming from idle six times each):
 //   - the Bathys takes about 0.35-0.4 s of audio after START and starts consuming it only about 0.53 s after START; until
 //     then writes block;
 //   - keeping the backlog (139-168 ms): writes blocked for 194-351 ms, the buffer went over kMaxQueueSeconds and

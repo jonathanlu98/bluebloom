@@ -21,6 +21,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)updateWithDepth:(NSUInteger)depth seconds:(double)seconds;
 // Jump to a tier (when switching from a fixed tier to adaptive, continue from the current tier); not counted as a trial raise
 - (void)jumpToTier:(int)tier;
+// Ahead of radio activity known to be coming (macOS scans for nearby devices for about 15 s when the user comes back to the Mac):
+// at the next update, drop one tier and stay at or below it for this long. Not counted as congestion, so no tier is locked out.
+// Any queue
+- (void)braceFor:(double)seconds;
 @end
 
 NS_ASSUME_NONNULL_END

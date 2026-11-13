@@ -2,6 +2,7 @@
 #import <AVFoundation/AVFoundation.h>
 #include <mach/mach_time.h>
 #include <math.h>
+#import "BBExperiments.h"
 #import "BBLog.h"
 #import "A2DPProtocol.h"
 #import "ClassicXPC.h"
@@ -12,6 +13,26 @@
 #import "SystemAudio.h"
 #import "TestSources.h"
 #include "VirtualDeviceProtocol.h"
+
+// Experiments (BBExperiments): vendor commands of the Broadcom host controller class in IOBluetooth, looked up at run time
+@interface NSObject (BlueBloomBroadcomController)
++ (id)defaultController;
+- (IOReturn)BluetoothHCIWriteHighPriorityConnection:(unsigned short)handle priority:(unsigned char)priority;
+- (int)BroadcomHCILESetScanEnableEnhanced:(unsigned char)enable
+                                 scanType:(unsigned char)scanType
+                         filterDuplicates:(unsigned char)filterDuplicates
+             bypassFilterDuplicateControl:(unsigned char)bypassFilterDuplicateControl
+                               targetCore:(unsigned char)targetCore
+                               scanPeriod:(unsigned short)scanPeriod
+                             scanDuration:(unsigned short)scanDuration;
+@end
+
+// The Broadcom controller object if this Mac has one and it implements the selector, else nil
+static id BroadcomController(SEL selector) {
+    Class class = NSClassFromString(@"BroadcomHostController");
+    id controller = [class respondsToSelector:@selector(defaultController)] ? [class defaultController] : nil;
+    return [controller respondsToSelector:selector] ? controller : nil;
+}
 
 static const uint8_t kLocalSeid = 1;
 static const double kRequestTimeout = 5;
@@ -288,6 +309,13 @@ typedef void (^ReplyBlock)(uint8_t messageType, const uint8_t *payload, size_t l
     int _batteryPercent;
     BOOL _idleSuspended;
     uint64_t _suspendedTicks;
+    uint64_t _lastKeepaliveTicks;
+    uint64_t _streamingSinceTicks;
+    BOOL _keepWarmLogged;
+    BluetoothConnectionHandle _highPriorityHandle;   // 0 while the priority is not raised
+    BOOL _priorityWanted;
+    BOOL _forcedScanActive;
+    BOOL _testFinished;
     BOOL _commandInFlight;
 
     BOOL _stopping;
@@ -1726,6 +1754,62 @@ static const double kQuietPollInterval = 0.02;
     }];
 }
 
+// Experiment: ask the controller to give the headphones' link high priority while audio is streaming, and take it back
+// when the stream pauses or ends. CoreBluetooth's own ACL priority setting needs the com.apple.bluetooth.system
+// entitlement; this sends the Broadcom vendor command directly instead. The command reports success, but no measurement
+// so far shows that it changes anything
+- (void)applyHighPriority:(BOOL)on {
+    if (on ? ![BBExperiments shared].highPriority : _highPriorityHandle == 0) return;
+    SEL selector = @selector(BluetoothHCIWriteHighPriorityConnection:priority:);
+    id controller = BroadcomController(selector);
+    if (!controller) {
+        if (on) BBLog(@"High priority (experiment): not available with this Mac's Bluetooth controller");
+        _highPriorityHandle = 0;
+        return;
+    }
+    BluetoothConnectionHandle handle = on ? _device.connectionHandle : _highPriorityHandle;
+    BOOL assumed = handle == 0 || handle == kBluetoothConnectionHandleNone;
+    // IOBluetooth knows the handle of links it opened itself and has reported none for this one, which is taken over
+    // through bluetoothd. Assume the first link then (handles count up from 1 on these controllers): right while the
+    // headphones are the only classic device connected, and the log says it was assumed
+    if (assumed) handle = 1;
+    IOReturn result = [controller BluetoothHCIWriteHighPriorityConnection:handle priority:on ? 1 : 0];
+    BBLog(@"High priority %@ (experiment): connection handle 0x%04X%@, result 0x%X", on ? @"on" : @"off", handle,
+          assumed ? @" (assumed, IOBluetooth reports none)" : @"", result);
+    _highPriorityHandle = on ? handle : 0;
+}
+
+// Test harness: ask a Broadcom controller for an LE scan at a 75% duty cycle (30 ms window every 40 ms, in 0.625 ms
+// units) for a few seconds from START. Meant to stand in for the high-rate scan macOS runs when it looks for nearby
+// devices; the three runs measured so far lost no audio with it, so it may not load the link the way that scan does
+- (void)setForcedScan:(BOOL)on {
+    id controller = BroadcomController(@selector(BroadcomHCILESetScanEnableEnhanced:scanType:filterDuplicates:bypassFilterDuplicateControl:targetCore:scanPeriod:scanDuration:));
+    if (!controller) {
+        if (on) BBLog(@"Forced scan (test harness): not available with this Mac's Bluetooth controller");
+        return;
+    }
+    int result = [controller BroadcomHCILESetScanEnableEnhanced:on scanType:1 filterDuplicates:0 bypassFilterDuplicateControl:0 targetCore:0 scanPeriod:64 scanDuration:48];
+    if (on) BBLog(@"Forced scan on for %.0f s (test harness): 30 ms every 40 ms, result %d", [BBExperiments shared].forceScanSeconds, result);
+    else BBLog(@"Forced scan off (test harness): result %d", result);
+}
+
+- (void)startForcedScanIfRequested {
+    double seconds = [BBExperiments shared].forceScanSeconds;
+    if (seconds <= 0 || _forcedScanActive) return;
+    _forcedScanActive = YES;
+    [self setForcedScan:YES];
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [weakSelf stopForcedScan];
+    });
+}
+
+- (void)stopForcedScan {
+    if (!_forcedScanActive) return;
+    _forcedScanActive = NO;
+    [self setForcedScan:NO];
+}
+
 - (void)beginStreaming {
     _state = SourceStateStreaming;
     _streamedOnce = YES;
@@ -1773,11 +1857,19 @@ static const double kQuietPollInterval = 0.02;
         _streamer.finishedHandler = ^{ [weakSelf stopWithReason:@"Audio playback finished" exitCode:0]; };
     }
     BBLog(@"START accepted, streaming %@", _configuration.summary);
+    BOOL resumed = _idleSuspended;
+    double suspended = resumed ? BBTicksToSeconds(mach_absolute_time() - _suspendedTicks) : 0;
     _idleSuspended = NO;
+    _keepWarmLogged = NO;
+    _streamingSinceTicks = mach_absolute_time();
+    if (resumed) BBLog(@"Resumed after %.0f s suspended", suspended);
     [self reportStatus:LinkStatusStreaming];
     // Start from the newest sound: a backlog sent at once overfills the headphones before they play (see dropBacklog)
     if (_systemAudio) [_systemAudio dropBacklog];
     [_streamer start];
+    [self applyHighPriority:YES];
+    [self startForcedScanIfRequested];
+    _priorityWanted = [BBExperiments shared].highPriority;
     if (_systemAudio && !_idleTimer) {
         __weak typeof(self) weakSelf = self;
         _idleTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
@@ -1789,6 +1881,10 @@ static const double kQuietPollInterval = 0.02;
 
 - (double)recentKbps {
     return _state == SourceStateStreaming ? _streamer.recentKbps : 0;
+}
+
+- (void)braceFor:(double)seconds {
+    if (_state == SourceStateStreaming) [_streamer braceFor:seconds];
 }
 
 - (double)droppedSeconds {
@@ -1880,36 +1976,117 @@ static const double kQuietPollInterval = 0.02;
         return;
     }
     double quiet = _systemAudio.secondsSinceSound;
+    BBExperiments *experiments = [BBExperiments shared];
+    uint64_t now = mach_absolute_time();
+    // Experiment: follow the high-priority switch while streaming, so on and off can be compared on the same stream
+    BOOL wantPriority = experiments.highPriority;
+    if (wantPriority != _priorityWanted) {
+        _priorityWanted = wantPriority;
+        [self applyHighPriority:wantPriority];
+    }
+
+    // Test harness: suspend and resume after fixed times, without depending on the audio source going silent
+    BOOL testMode = experiments.testSuspendAfterSeconds > 0 && !_testFinished;
+    if (testMode) {
+        if (_state == SourceStateStreaming && !_idleSuspended &&
+            BBTicksToSeconds(now - _streamingSinceTicks) >= experiments.testSuspendAfterSeconds) {
+            [self suspendStreamWithReason:[NSString stringWithFormat:@"Test harness: streamed for %.0f s", experiments.testSuspendAfterSeconds]];
+            return;
+        }
+        if (_state == SourceStateMediaReady && _idleSuspended &&
+            BBTicksToSeconds(now - _suspendedTicks) >= experiments.testResumeAfterSeconds) {
+            _testFinished = YES;
+            BBLog(@"Test harness: resuming after %.0f s suspended, then streaming without further test pauses", BBTicksToSeconds(now - _suspendedTicks));
+            [self resumeStreamFromSuspend];
+            return;
+        }
+    }
+
     // Playback status reported to the headphones: streaming and sound within the last 1 s
     _avrcp.playing = _state == SourceStateStreaming && quiet < 1;
     if (_state == SourceStateMediaReady && _idleSuspended) [_systemAudio keepRecentOnly];
-    if (_state == SourceStateStreaming && quiet > kIdleSuspendSeconds) {
+    if (!testMode && !_testFinished) {
+        if (_state == SourceStateStreaming && quiet > kIdleSuspendSeconds && experiments.keepWarm) {
+            if (!_keepWarmLogged) {
+                _keepWarmLogged = YES;
+                BBLog(@"Keep warm (experiment): silent for %.0f s, not suspending the stream", quiet);
+            }
+        } else if (_state == SourceStateStreaming && quiet > kIdleSuspendSeconds) {
+            [self suspendStreamWithReason:[NSString stringWithFormat:@"Silent for %.0f s", kIdleSuspendSeconds]];
+        } else if (_state == SourceStateMediaReady && _idleSuspended && quiet < 0.5 &&
+                   BBTicksToSeconds(now - _suspendedTicks) > 1) {
+            [self resumeStreamFromSuspend];
+        }
+    }
+    if (experiments.avrcpKeepalive && _state == SourceStateMediaReady && _idleSuspended &&
+        BBTicksToSeconds(now - _lastKeepaliveTicks) >= experiments.avrcpKeepaliveSeconds) {
+        _lastKeepaliveTicks = now;
+        [_avrcp sendKeepalive];
+        BBLog(@"AVRCP keepalive (experiment): sent after %.0f s suspended", BBTicksToSeconds(now - _suspendedTicks));
+    }
+}
+
+- (void)suspendStreamWithReason:(NSString *)reason {
+    if (_commandInFlight || _state != SourceStateStreaming) return;
+    _commandInFlight = YES;
+    uint8_t request = (uint8_t)(_chosen.seid << 2);
+    [self sendCommand:kSigSuspend payload:&request length:1 reply:^(uint8_t messageType, const uint8_t *payload, size_t length) {
+        self->_commandInFlight = NO;
+        if (messageType != kMsgAccept || self->_state != SourceStateStreaming) return;
+        [self applyHighPriority:NO];
+        [self stopForcedScan];
+        [self->_streamer pause];
+        self->_state = SourceStateMediaReady;
+        self->_idleSuspended = YES;
+        self->_suspendedTicks = mach_absolute_time();
+        self->_lastKeepaliveTicks = self->_suspendedTicks;
+        self->_keepWarmLogged = NO;
+        [self reportStatus:LinkStatusIdle];
+        BBLog(@"%@, suspending the stream (SUSPEND); resumes automatically when there is sound", reason);
+    }];
+}
+
+- (void)resumeStreamFromSuspend {
+    double suspended = BBTicksToSeconds(mach_absolute_time() - _suspendedTicks);
+    BBExperiments *experiments = [BBExperiments shared];
+    if (experiments.logLinkState) BBLog(@"Resuming after %.0f s suspended, experiments: %@", suspended, experiments.summary);
+    if (experiments.forceNewLink && suspended >= experiments.forceNewLinkAfterSeconds) {
         _commandInFlight = YES;
-        uint8_t request = (uint8_t)(_chosen.seid << 2);
-        [self sendCommand:kSigSuspend payload:&request length:1 reply:^(uint8_t messageType, const uint8_t *payload, size_t length) {
-            self->_commandInFlight = NO;
-            if (messageType != kMsgAccept || self->_state != SourceStateStreaming) return;
-            [self->_streamer pause];
-            self->_state = SourceStateMediaReady;
-            self->_idleSuspended = YES;
-            self->_suspendedTicks = mach_absolute_time();
-            [self reportStatus:LinkStatusIdle];
-            BBLog(@"Silent for %.0f s, suspending the stream (SUSPEND); resumes automatically when there is sound", kIdleSuspendSeconds);
-        }];
-    } else if (_state == SourceStateMediaReady && _idleSuspended && quiet < 0.5 &&
-               BBTicksToSeconds(mach_absolute_time() - _suspendedTicks) > 1) {
+        BBLog(@"Force new link (experiment): sound is back after %.0f s suspended, disconnecting to start a new session", suspended);
+        [_raceSessions[0] cancelConnection:_uuid];
+        [self stopWithReason:@"Starting a new session after a long pause (experiment)" exitCode:SourceExitForceNewLink];
+        return;
+    }
+    if (experiments.lightWake) {
         _commandInFlight = YES;
-        BBLog(@"Sound detected, resuming the stream");
-        uint8_t request = (uint8_t)(_chosen.seid << 2);
-        [self sendCommand:kSigStart payload:&request length:1 reply:^(uint8_t messageType, const uint8_t *payload, size_t length) {
-            self->_commandInFlight = NO;
-            if (messageType != kMsgAccept) {
-                [self stopWithReason:@"START rejected when resuming the stream" exitCode:SourceExitHeadsetBusy];
+        BBLog(@"Light wake (experiment): sound is back after %.0f s suspended, sending an AVRCP request before START", suspended);
+        [_avrcp sendKeepalive];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+            if (self->_stopping || self->_state != SourceStateMediaReady || !self->_idleSuspended) {
+                self->_commandInFlight = NO;
                 return;
             }
-            [self beginStreaming];
-        }];
+            self->_commandInFlight = NO;
+            [self sendResumeStart];
+        });
+    } else {
+        [self sendResumeStart];
     }
+}
+
+- (void)sendResumeStart {
+    if (_commandInFlight) return;
+    _commandInFlight = YES;
+    BBLog(@"Sound detected, resuming the stream after %.0f s suspended", BBTicksToSeconds(mach_absolute_time() - _suspendedTicks));
+    uint8_t request = (uint8_t)(_chosen.seid << 2);
+    [self sendCommand:kSigStart payload:&request length:1 reply:^(uint8_t messageType, const uint8_t *payload, size_t length) {
+        self->_commandInFlight = NO;
+        if (messageType != kMsgAccept) {
+            [self stopWithReason:@"START rejected when resuming the stream" exitCode:SourceExitHeadsetBusy];
+            return;
+        }
+        [self beginStreaming];
+    }];
 }
 
 - (void)updateOptions:(CodecOptions *)options {
@@ -2065,7 +2242,8 @@ static const double kQuietPollInterval = 0.02;
     if (_stopping) return;
     _stopping = YES;
     _exitCode = exitCode;
-    BOOL normal = exitCode == 0 || exitCode == 130 || exitCode == SourceExitHandedToSystem || exitCode == SourceExitRetryNow;
+    BOOL normal = exitCode == 0 || exitCode == 130 || exitCode == SourceExitHandedToSystem || exitCode == SourceExitRetryNow ||
+                  exitCode == SourceExitForceNewLink;
     BBLog(@"%@: %@", normal ? @"Ended" : @"Failed", reason);
     if (_raceTimer) {
         dispatch_source_cancel(_raceTimer);
@@ -2075,6 +2253,8 @@ static const double kQuietPollInterval = 0.02;
         dispatch_source_cancel(_idleTimer);
         _idleTimer = nil;
     }
+    [self applyHighPriority:NO];
+    [self stopForcedScan];
     [_streamer pause];
     [_streamer logTotals];
     [_systemAudio stop];

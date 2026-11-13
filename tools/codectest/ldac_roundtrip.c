@@ -89,6 +89,7 @@ typedef struct {
     size_t max_payload;
     int seconds;
     double packet_cap;  // see Link
+    double brace_at, brace_seconds;  // ldac_a2dp_brace at this time (0: never), see the brace case in main
 } Case;
 
 typedef struct {
@@ -100,6 +101,8 @@ typedef struct {
     size_t max_queue;
     int raises, dips;   // number of tier-ups; number of times the bitrate fell below Q0 (492/452) after 20 s
     double above_seconds;  // total time above Q0 after 20 s
+    int brace_before, brace_after, brace_max;  // bitrate when bracing, 0.1 s later, and the highest during the brace after that
+    bool brace_blocked;    // a tier was blocked (failed step-up) during the brace
 } Result;
 
 static int failures = 0;
@@ -185,6 +188,10 @@ static Result run_case(const Case *c) {
         }
         double t = (double)(i * per_call) / c->rate, dt = (double)per_call / c->rate;
         if (c->quality == kLdacQualityABR) ldac_a2dp_set_queue_depth(codec, (int)link->count);
+        if (c->brace_at > 0 && t >= c->brace_at && res.brace_before == 0) {
+            res.brace_before = ldac_a2dp_bitrate_kbps(codec);
+            ldac_a2dp_brace(codec, c->brace_seconds);
+        }
         size_t frames_in_packet = 0;
         uint8_t *out = stream + res.packets * kLdacMaxPayload;
         double t0 = now_seconds();
@@ -205,6 +212,15 @@ static Result run_case(const Case *c) {
         if (c->quality == kLdacQualityABR) {
             link_advance(link, t, dt);
             int kbps = ldac_a2dp_bitrate_kbps(codec);
+            // The block flag stays until read: read it every tick so that only blocks during the brace count
+            int blocked_kbps;
+            double blocked_seconds;
+            bool blocked = ldac_a2dp_take_abr_block(codec, &blocked_kbps, &blocked_seconds);
+            if (c->brace_at > 0 && t >= c->brace_at + 0.1 && t < c->brace_at + c->brace_seconds) {
+                if (res.brace_after == 0) res.brace_after = kbps;
+                if (kbps > res.brace_max) res.brace_max = kbps;
+                if (blocked) res.brace_blocked = true;
+            }
             if (kbps < res.min_kbps) res.min_kbps = kbps;
             int q0 = c->rate % 44100 == 0 ? 452 : 492;
             if (prev_kbps >= 0 && kbps > prev_kbps) res.raises++;
@@ -338,7 +354,7 @@ int main(void) {
     check_open_errors();
     printf("\n%-6s %-6s %-4s %4s %4s %6s %5s %7s %7s %7s %7s %5s %8s\n", "rate", "mode", "q", "mtu", "dur", "pkts", "f/pkt",
            "kbps", "target", "snrL", "snrR", "delay", "ms/s");
-    Case cases[49];
+    Case cases[50];
     size_t n_cases = 0;
     for (size_t r = 0; r < 4; r++)
         for (size_t q = 0; q < 4; q++)
@@ -349,6 +365,9 @@ int main(void) {
     cases[n_cases++] = (Case){ 48000, kLdacChannelDual, kLdacQualityHQ, 883, kSeconds };
     cases[n_cases++] = (Case){ 48000, kLdacChannelStereo, kLdacQualityABR, 883, 60 };  // see whether it steps back up after congestion
     cases[n_cases++] = (Case){ 96000, kLdacChannelStereo, kLdacQualityABR, 883, 180, 103 };  // link stuck between Q0 and SQ
+    // Bracing (ldac_a2dp_brace) at 45 s, after the 60 s case shows it back at 990: one tier down at once, no higher for 16 s even
+    // though the link is free, no tier blocked, and back up afterwards
+    cases[n_cases++] = (Case){ 48000, kLdacChannelStereo, kLdacQualityABR, 883, 75, 0, 45, 16 };
     for (size_t i = 0; i < n_cases; i++) {
         const Case *c = &cases[i];
         Result res = run_case(c);
@@ -365,6 +384,11 @@ int main(void) {
         printf(" %8.2f\n", res.ms_per_second);
         if (c->quality == kLdacQualityABR) {
             printf("       ABR bitrate changes %s; longest simulated queue %zu packets\n", res.abr_trace, res.max_queue);
+            if (c->brace_at > 0) {
+                printf("       brace at %.0f s for %.0f s: %d → %d kbps, at most %d kbps during it, %s, %d kbps at the end\n", c->brace_at,
+                       c->brace_seconds, res.brace_before, res.brace_after, res.brace_max, res.brace_blocked ? "a tier blocked" : "nothing blocked",
+                       res.final_kbps);
+            }
             if (c->packet_cap > 0) {
                 printf("       link %.0f packets/s: %d tier-ups; after 20 s fell below Q0 %d times, above Q0 for %.1f s in total\n", c->packet_cap, res.raises, res.dips,
                        res.above_seconds);
@@ -401,6 +425,12 @@ int main(void) {
                 }
             } else if (c->seconds > kSeconds && res.final_kbps <= res.min_kbps) {
                 fprintf(stderr, "  FAIL: %d s after congestion ended the bitrate is still %d\n", c->seconds - 6, res.final_kbps);
+                failures++;
+            }
+            if (c->brace_at > 0 && (res.brace_after >= res.brace_before || res.brace_max > res.brace_after || res.brace_blocked ||
+                                    res.final_kbps <= res.brace_after)) {
+                fprintf(stderr, "  FAIL: brace %d → %d kbps, at most %d during it, %s, final %d\n", res.brace_before, res.brace_after,
+                        res.brace_max, res.brace_blocked ? "a tier blocked" : "nothing blocked", res.final_kbps);
                 failures++;
             }
             if (res.max_queue > 20) {

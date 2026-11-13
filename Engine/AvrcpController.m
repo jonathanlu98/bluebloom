@@ -124,11 +124,22 @@ static NSData *VendorFrame(uint8_t ctype, uint8_t pdu, const uint8_t *params, si
     return frame;
 }
 
-- (void)sendVendor:(uint8_t)ctype pdu:(uint8_t)pdu params:(const uint8_t *)params length:(size_t)length reply:(VendorReply)reply {
+// Returns the transaction label used. Labels are 4 bits, and the volume subscription keeps one waiting for as long as
+// the volume doesn't change on the headphones, so skip any label that still has a reply pending: reusing it would hand
+// this command's response to that reply and drop the subscription.
+- (uint8_t)sendVendor:(uint8_t)ctype pdu:(uint8_t)pdu params:(const uint8_t *)params length:(size_t)length reply:(VendorReply)reply {
     uint8_t label = _nextLabel;
-    _nextLabel = (uint8_t)((_nextLabel + 1) & 0x0F);
+    for (int i = 0; i < 16 && _pending[@(label)]; i++) label = (uint8_t)((label + 1) & 0x0F);
+    _nextLabel = (uint8_t)((label + 1) & 0x0F);
     if (reply) _pending[@(label)] = [reply copy];
     [self sendLabel:label type:kAvctpCommand frame:VendorFrame(ctype, pdu, params, length)];
+    return label;
+}
+
+- (void)sendKeepalive {
+    if (_closed || !_socket) return;
+    uint8_t capability = kCapabilityEventsSupported;
+    [self sendVendor:kCtypeStatus pdu:kPduGetCapabilities params:&capability length:1 reply:nil];
 }
 
 - (void)respondVendor:(uint8_t)label ctype:(uint8_t)ctype pdu:(uint8_t)pdu params:(const uint8_t *)params length:(size_t)length {
@@ -257,7 +268,18 @@ static NSData *VendorFrame(uint8_t ctype, uint8_t pdu, const uint8_t *params, si
 
 - (void)queryCapabilities:(int)attempt {
     uint8_t capability = kCapabilityEventsSupported;
-    uint8_t label = _nextLabel;
+    uint8_t label = [self sendVendor:kCtypeStatus pdu:kPduGetCapabilities params:&capability length:1 reply:^(uint8_t ctype, const uint8_t *params, size_t length) {
+        self->_capabilitiesAnswered = YES;
+        if (ctype != kCtypeStable || length < 2 || params[0] != kCapabilityEventsSupported) {
+            [self log:[NSString stringWithFormat:@"AVRCP: querying headphones capabilities failed (response 0x%X)", ctype]];
+            return;
+        }
+        for (size_t i = 0; i < params[1] && 2 + i < length; i++) {
+            if (params[2 + i] == kEventVolumeChanged) self->_absoluteVolumeSupported = YES;
+        }
+        [self log:self->_absoluteVolumeSupported ? @"AVRCP: headphones support absolute volume, starting volume sync" : @"AVRCP: headphones do not support absolute volume"];
+        if (self->_absoluteVolumeSupported) [self registerVolume];
+    }];
     __weak typeof(self) weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kCapabilityRetrySeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         typeof(self) strongSelf = weakSelf;
@@ -270,18 +292,6 @@ static NSData *VendorFrame(uint8_t ctype, uint8_t pdu, const uint8_t *params, si
         [strongSelf log:[NSString stringWithFormat:@"AVRCP: no answer to the capability query within %.1f s, asking again (attempt %d)", kCapabilityRetrySeconds, attempt + 1]];
         [strongSelf queryCapabilities:attempt + 1];
     });
-    [self sendVendor:kCtypeStatus pdu:kPduGetCapabilities params:&capability length:1 reply:^(uint8_t ctype, const uint8_t *params, size_t length) {
-        self->_capabilitiesAnswered = YES;
-        if (ctype != kCtypeStable || length < 2 || params[0] != kCapabilityEventsSupported) {
-            [self log:[NSString stringWithFormat:@"AVRCP: querying headphones capabilities failed (response 0x%X)", ctype]];
-            return;
-        }
-        for (size_t i = 0; i < params[1] && 2 + i < length; i++) {
-            if (params[2 + i] == kEventVolumeChanged) self->_absoluteVolumeSupported = YES;
-        }
-        [self log:self->_absoluteVolumeSupported ? @"AVRCP: headphones support absolute volume, starting volume sync" : @"AVRCP: headphones do not support absolute volume"];
-        if (self->_absoluteVolumeSupported) [self registerVolume];
-    }];
 }
 
 - (void)registerVolume {

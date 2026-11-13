@@ -3,11 +3,14 @@
 
 #import <Foundation/Foundation.h>
 #import <IOBluetooth/IOBluetooth.h>
+#import <CoreAudio/CoreAudio.h>
+#import <AudioToolbox/AudioServices.h>
 #include <math.h>
 #include <signal.h>
 #include "freeaptx.h"
 #import "A2DPSource.h"
 #import "StreamController.h"
+#import "BBExperiments.h"
 #import "BBLog.h"
 #import "A2DPProtocol.h"
 #import "PCMSource.h"
@@ -128,7 +131,21 @@ static void PrintUsage(void) {
            "  --aac-bitrate bits-per-second  --aac-cbr        AAC bitrate (default capped at 320k); use constant bitrate\n"
            "  --sbc-xq                                        SBC with dual-channel high bitpool\n"
            "  --fixed-rate                                    SBC and AAC do not lower the bitrate automatically with the link\n"
-           "  --max-rate sample-rate                          Maximum sample rate\n");
+           "  --max-rate sample-rate                          Maximum sample rate\n"
+           "Experiments, off by default and none shown to prevent dropouts. A flag stays on for later runs of this tool:\n"
+           "  --keep-warm                                     Keep sending silence instead of suspending the stream\n"
+           "  --avrcp-keepalive                               Send an AVRCP request at intervals while suspended\n"
+           "  --avrcp-keepalive-seconds n                     That interval (default 60)\n"
+           "  --light-wake                                    Send an AVRCP request 0.3 s before START when resuming\n"
+           "  --force-new-link                                Resume from a long pause with a new session\n"
+           "  --force-new-link-after n                        How long a pause counts as long, in seconds (default 600)\n"
+           "  --slow-abr                                      Adaptive bitrate waits longer before trying a higher tier\n"
+           "  --high-priority                                 Ask the Bluetooth controller for a high-priority link while streaming\n"
+           "  --log-link-state                                Extra log lines around resume\n"
+           "  --test-suspend-after n                          Test harness: suspend n s after START, once (0 = off)\n"
+           "  --test-resume-after n                           Test harness: resume n s after that suspend (default 20)\n"
+           "  --force-scan n                                  Test harness: force a high-rate LE scan for n s from START (0 = off)\n"
+           "  --experiments-reset                             Put every experiment back to its default\n");
     printf("Compiled-in codecs (ID: bitrate tiers):\n");
     for (A2DPCodec *codec in [A2DPCodec allCodecs]) {
         NSMutableArray<NSString *> *presets = [NSMutableArray array];
@@ -178,6 +195,155 @@ static CodecOptions *OptionsFromArguments(NSArray<NSString *> *arguments) {
     options.sbcAdaptive = options.aacAdaptive = ![arguments containsObject:@"--fixed-rate"];
     options.maxSampleRate = [OptionValue(arguments, @"--max-rate") doubleValue];
     return options;
+}
+
+// Experiment switches are stored in this tool's own NSUserDefaults (BBExperiments), apart from the app's: a flag turns
+// one on and it stays on for later runs until --experiments-reset
+static void ApplyExperimentArguments(NSArray<NSString *> *arguments) {
+    if ([arguments containsObject:@"--experiments-reset"]) [BBExperiments resetAll];
+    BBExperiments *experiments = [BBExperiments shared];
+    if ([arguments containsObject:@"--keep-warm"]) experiments.keepWarm = YES;
+    if ([arguments containsObject:@"--avrcp-keepalive"]) experiments.avrcpKeepalive = YES;
+    if ([arguments containsObject:@"--light-wake"]) experiments.lightWake = YES;
+    if ([arguments containsObject:@"--force-new-link"]) experiments.forceNewLink = YES;
+    if ([arguments containsObject:@"--slow-abr"]) experiments.slowABR = YES;
+    if ([arguments containsObject:@"--high-priority"]) experiments.highPriority = YES;
+    if ([arguments containsObject:@"--log-link-state"]) experiments.logLinkState = YES;
+    NSString *value;
+    if ((value = OptionValue(arguments, @"--avrcp-keepalive-seconds"))) experiments.avrcpKeepaliveSeconds = value.doubleValue;
+    if ((value = OptionValue(arguments, @"--force-new-link-after"))) experiments.forceNewLinkAfterSeconds = value.doubleValue;
+    if ((value = OptionValue(arguments, @"--test-suspend-after"))) experiments.testSuspendAfterSeconds = value.doubleValue;
+    if ((value = OptionValue(arguments, @"--test-resume-after"))) experiments.testResumeAfterSeconds = value.doubleValue;
+    if ((value = OptionValue(arguments, @"--force-scan"))) experiments.forceScanSeconds = value.doubleValue;
+    if (experiments.activeCount > 0) BBLog(@"Experiments on: %@", experiments.summary);
+}
+
+#pragma mark - Mac volume and the headphones (--system)
+
+// A mute or listener address on the default output device (the muted speakers while streaming)
+static AudioObjectPropertyAddress VolumeAddress(AudioObjectPropertySelector selector, UInt32 element) {
+    return (AudioObjectPropertyAddress){ selector, kAudioDevicePropertyScopeOutput, element };
+}
+
+static AudioObjectID DefaultOutput(void) {
+    AudioObjectPropertyAddress address = { kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain };
+    AudioObjectID device = kAudioObjectUnknown;
+    UInt32 size = sizeof(device);
+    AudioObjectGetPropertyData(kAudioObjectSystemObject, &address, 0, NULL, &size, &device);
+    return device;
+}
+
+// The volume the menu bar shows: AudioToolbox's virtual main volume, which is the main element or the channels with
+// their balance kept
+static AudioObjectPropertyAddress MainVolumeAddress(void) {
+    return (AudioObjectPropertyAddress){ kAudioHardwareServiceDeviceProperty_VirtualMainVolume, kAudioDevicePropertyScopeOutput,
+                                         kAudioObjectPropertyElementMain };
+}
+
+static BOOL ReadRawVolume(AudioObjectID device, Float32 *volume) {
+    AudioObjectPropertyAddress address = MainVolumeAddress();
+    UInt32 size = sizeof(*volume);
+    return AudioObjectHasProperty(device, &address) &&
+           AudioObjectGetPropertyData(device, &address, 0, NULL, &size, volume) == noErr;
+}
+
+// 0 while muted (the mute of the main element, else of channel 1)
+static BOOL ReadMacVolume(AudioObjectID device, Float32 *volume) {
+    if (!ReadRawVolume(device, volume)) return NO;
+    for (UInt32 element = 0; element <= 1; element++) {
+        AudioObjectPropertyAddress address = VolumeAddress(kAudioDevicePropertyMute, element);
+        UInt32 muted = 0;
+        UInt32 size = sizeof(muted);
+        if (AudioObjectHasProperty(device, &address) && AudioObjectGetPropertyData(device, &address, 0, NULL, &size, &muted) == noErr) {
+            if (muted) *volume = 0;
+            break;
+        }
+    }
+    return YES;
+}
+
+static void WriteMacVolume(AudioObjectID device, Float32 volume) {
+    AudioObjectPropertyAddress address = MainVolumeAddress();
+    if (AudioObjectHasProperty(device, &address)) AudioObjectSetPropertyData(device, &address, 0, NULL, sizeof(volume), &volume);
+}
+
+// --system: the tap takes the sound before the Mac's volume, so the volume keys would only turn the muted speakers. Their volume goes
+// to the headphones' amplifier instead (AVRCP absolute volume, 0–127), and the headphones' own volume (swipe, buttons)
+// moves the Mac's, so the keys, the menu bar and the headphones stay in step. Starts from the headphones' volume: no jump.
+static AudioObjectID watched = kAudioObjectUnknown;  // the Mac output whose volume follows the headphones
+static Float32 before = -1;                          // its volume before we first set it
+
+// Returns what the Mac reports after the write: 0 while it is muted, and rounded to the device's own steps. The change
+// listener sees that value as the echo of this write, not the value written
+static Float32 SetMacVolume(Float32 volume) {
+    if (before < 0 && !ReadRawVolume(watched, &before)) before = -1;
+    WriteMacVolume(watched, volume);
+    Float32 reported = volume;
+    ReadMacVolume(watched, &reported);
+    return reported;
+}
+
+// When the session ends (the headphones report no volume any more), the tool exits or the output changes, the Mac
+// output gets its own volume back: the speakers play at the level they had, not at the headphones'
+static void RestoreMacVolume(void) {
+    if (before >= 0) WriteMacVolume(watched, before);
+    before = -1;
+}
+
+static void SyncVolume(id controller) {
+    static int remote = -1;          // what the headphones have now; -1 without an AVRCP channel
+    static Float32 written = -1;     // the Mac volume we just set from the headphones: its echo is not sent back
+    __weak id weak = controller;
+    static AudioObjectPropertyListenerBlock changed;
+    changed = ^(UInt32 count, const AudioObjectPropertyAddress *addresses) {
+        Float32 volume;
+        if (remote < 0 || !ReadMacVolume(watched, &volume) || fabsf(volume - written) < 0.5f / 127) return;
+        written = -1;
+        int target = (int)lroundf(volume * 127);
+        if (target != remote && [weak setRemoteVolume:target]) {
+            BBLog(@"Volume: Mac %.0f%% → headphones %d/127", volume * 100, target);
+            remote = target;
+        }
+    };
+    static void (^watch)(void);
+    watch = ^{
+        RestoreMacVolume();
+        AudioObjectPropertySelector selectors[] = { kAudioDevicePropertyVolumeScalar, kAudioDevicePropertyMute };
+        for (int pass = 0; pass < 2; pass++) {
+            AudioObjectID device = pass == 0 ? watched : DefaultOutput();
+            for (int s = 0; s < 2; s++) {
+                for (UInt32 element = 0; element <= 2; element++) {
+                    AudioObjectPropertyAddress address = VolumeAddress(selectors[s], element);
+                    if (device == kAudioObjectUnknown || !AudioObjectHasProperty(device, &address)) continue;
+                    if (pass == 0) AudioObjectRemovePropertyListenerBlock(device, &address, dispatch_get_main_queue(), changed);
+                    else AudioObjectAddPropertyListenerBlock(device, &address, dispatch_get_main_queue(), changed);
+                }
+            }
+            if (pass == 1) watched = device;
+        }
+        // The new device takes the headphones' volume, as at the start
+        if (remote >= 0) written = SetMacVolume(remote / 127.0f);
+    };
+    watch();
+    // The default output moves from the headphones to the speakers at the takeover
+    AudioObjectPropertyAddress defaultAddress = { kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain };
+    AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &defaultAddress, dispatch_get_main_queue(),
+                                        ^(UInt32 count, const AudioObjectPropertyAddress *addresses) { watch(); });
+    [controller setRemoteVolumeHandler:^(int volume) {
+        // An echo of what we just sent changes nothing: after a mute, the headphones' 0 would otherwise reach the Mac
+        // and the unmute would find nothing to send
+        if (volume == remote) return;
+        remote = volume;
+        if (volume < 0) {
+            // The session ended (headphones off or gone) while the tool waits for them: the speakers play again
+            RestoreMacVolume();
+            return;
+        }
+        // With the Mac output muted (speakers often are), this reads back 0 and the headphones keep their own level
+        // until the Mac's volume or mute changes
+        written = SetMacVolume(volume / 127.0f);
+    }];
+    atexit(RestoreMacVolume);
 }
 
 #pragma mark - Codec-layer smoke test: without headphones, run configure -> create encoder -> encode with a capability element where "the headphones support everything"
@@ -334,10 +500,12 @@ int main(int argc, const char *argv[]) {
             return 2;
         }
         CodecOptions *options = OptionsFromArguments(arguments);
+        ApplyExperimentArguments(arguments);
         if (serve) {
             // Resident: connect once, then take the headphones whenever they connect by themselves (StreamController never retries on its own); takes audio from the virtual device by default, --system captures system-wide audio instead
             StreamController *controller = [[StreamController alloc] initWithDevice:device virtualDevice:![arguments containsObject:@"--system"]];
             controller.optionsProvider = ^CodecOptions *{ return options; };
+            if ([arguments containsObject:@"--system"]) SyncVolume(controller);
             signal(SIGINT, SIG_IGN);
             dispatch_source_t interrupt = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGINT, 0, dispatch_get_main_queue());
             dispatch_source_set_event_handler(interrupt, ^{ [controller stopWithCompletion:^{ exit(0); }]; });
@@ -356,6 +524,7 @@ int main(int argc, const char *argv[]) {
                                                    systemAudio:[arguments containsObject:@"--system"]];
         source.useVirtualDevice = [arguments containsObject:@"--device"];
         source.options = options;
+        if ([arguments containsObject:@"--system"]) SyncVolume(source);
         signal(SIGINT, SIG_IGN);
         dispatch_source_t interrupt = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGINT, 0, dispatch_get_main_queue());
         dispatch_source_set_event_handler(interrupt, ^{ [source stopWithReason:@"Interrupted by user" exitCode:130]; });

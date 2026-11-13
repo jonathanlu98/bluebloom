@@ -98,6 +98,10 @@ static __weak SBCEncoder *gCurrentEncoder;
     _depth = depth;
 }
 
+- (void)braceFor:(double)seconds {
+    [_adapter braceFor:seconds];
+}
+
 // Applies in place when only the adaptive switch changed (other parameter changes need reconfiguration)
 - (BOOL)applyConfiguration:(CodecConfiguration *)configuration {
     NSDictionary *p = configuration.parameters;

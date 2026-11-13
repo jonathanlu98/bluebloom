@@ -62,6 +62,9 @@ static const double kDepthWarmupSeconds = 1;
     double _lastSendTime;
     BOOL _stallReported;
     double _depthWarmupUntil;
+    // File playback: how late the audio was when the warm-up after START ended (frames), taken as the start of the timeline
+    double _lateFrames;
+    BOOL _lateSettled;
 }
 
 - (instancetype)initWithSocket:(L2CAPSocket *)socket rate:(double)rate source:(id<PCMSource>)source
@@ -103,6 +106,8 @@ static const double kDepthWarmupSeconds = 1;
         self->_kbpsBytes = self->_bytes;
         self->_lastSendTime = self->_lastStatsTime;
         self->_depthWarmupUntil = self->_lastStatsTime + kDepthWarmupSeconds;
+        self->_lateFrames = 0;
+        self->_lateSettled = NO;
         self->_stallReported = NO;
         self->_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, DISPATCH_TIMER_STRICT, self->_queue);
         dispatch_source_set_timer(self->_timer, DISPATCH_TIME_NOW, 2 * NSEC_PER_MSEC, NSEC_PER_MSEC / 2);
@@ -114,6 +119,12 @@ static const double kDepthWarmupSeconds = 1;
 
 - (void)pause {
     dispatch_sync(_queue, ^{ [self stopTimer]; });
+}
+
+- (void)braceFor:(double)seconds {
+    dispatch_async(_queue, ^{
+        if ([self->_encoder respondsToSelector:@selector(braceFor:)]) [self->_encoder braceFor:seconds];
+    });
 }
 
 - (BOOL)replaceEncoderWith:(id<A2DPEncoder> _Nullable (^)(void))factory {
@@ -165,12 +176,25 @@ static const double kDepthWarmupSeconds = 1;
     if (handler) dispatch_async(dispatch_get_main_queue(), handler);
 }
 
+// File playback: how many frames should have been read from the file by now, a little ahead of the clock
+- (double)dueFrames:(double)elapsed {
+    return elapsed * _rate + kPrefillCalls * _encoder.framesPerCall - _lateFrames;
+}
+
 - (void)pump {
     double elapsed = BBTicksToSeconds(mach_absolute_time() - _startTicks);
     size_t perCall = _encoder.framesPerCall;
     if (!_capture) {
+        if (!_lateSettled && elapsed >= _depthWarmupUntil) {
+            // Headphones fill their buffer before they start playing, which holds the first writes back, and a file is not
+            // sent faster than it plays, so what was late then stays late (Focal Bathys with SBC at 504 kbps: a steady
+            // 0.1 s). Take that as where the timeline starts, once, so that only falling further behind counts as the
+            // link not keeping up
+            _lateSettled = YES;
+            _lateFrames = MAX(0, [self dueFrames:elapsed] - (double)_framesConsumed - (double)perCall);
+        }
         // Too far behind (link congested): drop PCM before encoding to catch up with the clock, keeping the bitstream itself continuous
-        double target = elapsed * _rate + kPrefillCalls * perCall;
+        double target = [self dueFrames:elapsed];
         while (!_sourceEnded && _pending.count == 0 && target - (double)_framesConsumed > _rate * kMaxLagSeconds) {
             if ([_source read:_pcm.mutableBytes frames:perCall] < perCall) _sourceEnded = YES;
             _framesConsumed += perCall;
@@ -180,7 +204,7 @@ static const double kDepthWarmupSeconds = 1;
     while (!_failed) {
         if (_pending.count == 0) {
             BOOL due = _capture ? [_source availableFrames] >= perCall
-                                : (double)(_framesConsumed + perCall) <= elapsed * _rate + kPrefillCalls * perCall;
+                                : (double)(_framesConsumed + perCall) <= [self dueFrames:elapsed];
             if (!due) break;
             if (_sourceEnded) {
                 [self finish];
@@ -230,6 +254,15 @@ static const double kDepthWarmupSeconds = 1;
 // When streaming cannot keep up we stop encoding first, so the backlog sits in the capture buffer and counting only pending packets would always give 0–1; subtract 12ms of fetch jitter (the virtual device is fetched every 10ms)
 - (NSUInteger)queueDepth {
     NSUInteger depth = _pending.count;
+    if (!_capture && _packets > 0) {
+        // File playback has no capture backlog, so a link that cannot keep up only shows as the sent audio falling behind the
+        // clock: count that lag in packets too, or adaptive bitrate never sees it and never steps down
+        double framesPerPacket = (double)_framesConsumed / (double)(_packets + _pending.count);
+        double elapsed = BBTicksToSeconds(mach_absolute_time() - _startTicks);
+        double lag = [self dueFrames:elapsed] - (double)_framesConsumed - _rate * 0.012;
+        if (lag > 0 && framesPerPacket > 0) depth += (NSUInteger)(lag / framesPerPacket);
+        return depth;
+    }
     if (!_capture || _packets == 0) return depth;
     double framesPerPacket = (double)_framesConsumed / (double)(_packets + _pending.count);
     double backlog = (double)[_source availableFrames] - _rate * 0.012;

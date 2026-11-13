@@ -126,10 +126,15 @@ final class AppModel {
     @ObservationIgnored private var linkDownSince: Date?
     @ObservationIgnored private var switchedOutput = false
     @ObservationIgnored private var droppedSeconds: Double = 0
+    @ObservationIgnored private var returnTimer: Timer?
+    @ObservationIgnored private var lastInputIdle: Double = 0
     @ObservationIgnored private var stopping = false
     @ObservationIgnored private var startAfterStop = false
     @ObservationIgnored private var connectAfterStop = false
     static let historyLength = 60
+
+    // Test harness (BBExperiments): connect on launch instead of waiting for the headphones, for unattended test runs
+    private var autoConnect: Bool { BBExperiments.shared.autoConnect }
 
     init() {
         if Snapshot.isActive { return }
@@ -142,6 +147,9 @@ final class AppModel {
         applySampleRateMode()
         ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
+        }
+        returnTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkUserReturn() }
         }
         LegacyCleanup.run()
         waitForBluetooth()
@@ -167,7 +175,8 @@ final class AppModel {
         BBLogMessage("Bluetooth available (authorization status \(CBManager.authorization.rawValue))")
         devices.activate()
         guard virtualDeviceReady, settings.enabled else { return }
-        startController()
+        if autoConnect { BBLogMessage("Auto-connect (test harness): connecting without waiting for the headphones") }
+        startController(connect: autoConnect)
     }
 
     // MARK: Current device and status
@@ -209,6 +218,37 @@ final class AppModel {
         case .sbc: return !settings.sbcAdaptive
         default: return false
         }
+    }
+
+    // Coming back to the Mac after leaving it alone makes macOS scan for nearby devices at a high rate for about 15 s on the same
+    // radio as the stream: sharingd's activity level goes from User to Screen after about 25 s without keyboard or mouse input,
+    // and back to User, starting the scan, on the next input (measured 2026-11-05). An adaptive bitrate that waits for the
+    // backlog reacts after the first gap; brace it at that moment instead (seen the same day with an adaptive bitrate: 0.65 s of
+    // sending lost on a return without bracing, none on five returns with it). Under 25 s idle, sharingd had not reached
+    // Screen and did not scan. BraceOnUserReturn (defaults, on unless set to NO) turns it off for comparisons; the log notes
+    // the return either way
+    private static let userReturnIdleSeconds = 25.0
+    private static let braceSeconds = 16.0
+
+    private func checkUserReturn() {
+        let idle = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: CGEventType(rawValue: ~0)!)
+        defer { lastInputIdle = idle }
+        guard isStreaming, lastInputIdle >= Self.userReturnIdleSeconds, idle < 1 else { return }
+        if !(activeCodec.map(usesAdaptiveBitrate) ?? false) {
+            BBLogMessage(String(format: "Back at the Mac after %.0f s without input (fixed bitrate, nothing to hold lower)", lastInputIdle))
+        } else if UserDefaults.standard.object(forKey: "BraceOnUserReturn") as? Bool ?? true {
+            BBLogMessage(String(format: "Back at the Mac after %.0f s without input: holding the bitrate one tier lower for %.0f s while macOS scans for nearby devices",
+                                lastInputIdle, Self.braceSeconds))
+            controller?.brace(for: Self.braceSeconds)
+        } else {
+            BBLogMessage(String(format: "Back at the Mac after %.0f s without input (bracing off)", lastInputIdle))
+        }
+    }
+
+    // The codec is streaming with an adaptive bitrate: it has an adaptive mode and the settings don't fix the bitrate
+    func usesAdaptiveBitrate(_ codec: A2DPCodec) -> Bool {
+        let hasAdaptive = codec.presets.contains(where: \.isAdaptive) || codec.identifier == .aac || codec.identifier == .sbc
+        return hasAdaptive && !isFixedWithAdaptiveAvailable(codec)
     }
 
     // "Use Adaptive" in the dropout notice: switch the current codec to its adaptive mode
@@ -425,7 +465,8 @@ final class AppModel {
         // The device appeared (just launched, or coreaudiod restarted): start what was waiting for it
         if !wasReady, virtualDeviceReady, !installingDriver, !uninstalling, controller == nil {
             BBLogMessage("Virtual device is available")
-            startController()
+            if autoConnect { BBLogMessage("Auto-connect (test harness): connecting without waiting for the headphones") }
+            startController(connect: autoConnect)
         }
     }
 

@@ -41,6 +41,9 @@ enum Diagnostics {
         lines.append("AAC: \(settings.aacBitrate > 0 ? "\(settings.aacBitrate) bps" : "default bitrate") \(settings.aacVBR ? "VBR" : "CBR"), adaptive \(settings.aacAdaptive); SBC: XQ \(settings.sbcXQ), adaptive \(settings.sbcAdaptive)")
         lines.append("volume sync: \(settings.volumeSync), switch output automatically: \(settings.autoSwitchOutput), menu bar: \(settings.menuBarStyle.rawValue)")
 
+        // Switches that are not in the regular settings: experiments (BBExperiments) and bracing turned off for a comparison
+        lines.append("experiments: \(BBExperiments.shared.summary)\(UserDefaults.standard.object(forKey: "BraceOnUserReturn") as? Bool == false ? "; bracing on user return off" : "")")
+
         section("Audio")
         let driver: String
         switch model.driverState {

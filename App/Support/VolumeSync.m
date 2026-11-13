@@ -50,10 +50,14 @@ static AudioObjectID FindVolumeControl(AudioObjectID device) {
     AudioObjectID device = FindVirtualDevice();
     if (device == kAudioObjectUnknown) return NO;
     if (device == _device && _control != kAudioObjectUnknown) return YES;
+    BOOL wanted = _hardwareMode;
     [self detach];
     _device = device;
     _control = FindVolumeControl(device);
     if (_control == kAudioObjectUnknown) return NO;
+    // A different device object (first use, or coreaudiod restarted): the driver's flag is whatever it was left at, not what
+    // this object last wrote. Left off while the headphones' amplifier follows the volume, the volume would be applied twice
+    [self setHardwareMode:wanted];
     __weak typeof(self) weakSelf = self;
     _listener = ^(UInt32 count, const AudioObjectPropertyAddress *addresses) { [weakSelf localVolumeChanged]; };
     AudioObjectPropertyAddress address = { kAudioLevelControlPropertyScalarValue, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain };
@@ -84,14 +88,32 @@ static AudioObjectID FindVolumeControl(AudioObjectID device) {
     AudioObjectSetPropertyData(_control, &address, 0, NULL, sizeof(value), &value);
 }
 
+// The driver's own flag. It outlives this object (the app can be force-quit in hardware mode) and starts out off again when
+// the driver is reloaded, so it is read from the driver rather than remembered
+- (BOOL)driverHardwareMode {
+    AudioObjectPropertyAddress address = { kBBPropertyHardwareVolume, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain };
+    CFPropertyListRef value = NULL;
+    UInt32 size = sizeof(value);
+    int enabled = 0;
+    if (AudioObjectGetPropertyData(_device, &address, 0, NULL, &size, &value) != noErr || !value) return NO;
+    if (CFGetTypeID(value) == CFNumberGetTypeID()) CFNumberGetValue(value, kCFNumberIntType, &enabled);
+    CFRelease(value);
+    return enabled != 0;
+}
+
 - (void)setHardwareMode:(BOOL)enabled {
-    if (_hardwareMode == enabled || _device == kAudioObjectUnknown) return;
+    if (_device == kAudioObjectUnknown) return;
+    if ([self driverHardwareMode] == enabled) {
+        _hardwareMode = enabled;
+        return;
+    }
     AudioObjectPropertyAddress address = { kBBPropertyHardwareVolume, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain };
     int value = enabled ? 1 : 0;
     CFNumberRef number = CFNumberCreate(NULL, kCFNumberIntType, &value);
     OSStatus status = AudioObjectSetPropertyData(_device, &address, 0, NULL, sizeof(number), &number);
     CFRelease(number);
-    if (status == noErr) _hardwareMode = enabled;
+    // If the write failed the driver is still in the other mode; keep track of that so volumes are not also sent to the headphones
+    _hardwareMode = status == noErr ? enabled : !enabled;
     BBLog(@"%@ (status %d)", enabled ? @"Volume now handled by the headphones' amplifier, synced with the headphones" : @"Volume back to software attenuation", (int)status);
 }
 
@@ -118,6 +140,7 @@ static int ScalarToVolume(Float32 scalar) {
         BBLog(@"Volume sync: headphones were at %d/127, set to %d/127 from the Mac's current volume", volume, local);
         return;
     }
+    [self setHardwareMode:YES];
     if (volume == _lastVolume) return;
     // The headphones' buttons changed the volume: update the virtual device's volume display
     _lastVolume = volume;
@@ -126,6 +149,8 @@ static int ScalarToVolume(Float32 scalar) {
 
 - (void)localVolumeChanged {
     if (!_hardwareMode || !_synced) return;
+    [self setHardwareMode:YES];
+    if (!_hardwareMode) return;
     int volume = ScalarToVolume([self scalar]);
     if (volume == _lastVolume) return;
     _lastVolume = volume;

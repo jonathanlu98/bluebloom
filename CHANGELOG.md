@@ -2,6 +2,32 @@
 
 All notable changes to Blue Bloom are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). Versions before 1.0 are pre-releases.
 
+## [1.0.1] - 2026-11-13
+
+### Added
+
+- With Adaptive, the bitrate now goes one step lower for 16 seconds when you come back to the Mac after 25 seconds or more without touching the keyboard or mouse. That is when macOS scans for nearby devices on the same Bluetooth radio, for about 15 seconds. Before, Adaptive only stepped down after the first gap in the sound. This works with every codec that has Adaptive, LDAC included.
+- Command-line tool: with `--system`, the Mac's volume keys and mute now control the headphones, and a volume change made on the headphones moves the Mac's volume. Thanks to fedossayenko for the change (#10).
+- Settings › Advanced can show an Experiments section, with switches for investigating dropouts. It is hidden until you Option-click the version in Settings › About. Every switch is off by default, and none of them has been shown to prevent dropouts. Diagnostics list the ones that are on.
+
+### Fixed
+
+- Volume changes made on the headphones stopped reaching the Mac once the Mac's volume had been changed about 15 times since the last change on the headphones.
+- After Core Audio restarted or the Blue Bloom audio device was reinstalled, the volume could be turned down twice, by Blue Bloom and by the headphones, so the sound was quieter than the volume shown.
+- With keyboard navigation on, the General tab in Settings kept a focus ring whichever tab was selected.
+- At a fixed bitrate, the log no longer says the bitrate is held lower when you come back to the Mac.
+- Command-line tool: when playing a file, Adaptive now steps down on a link that can't keep up. Before, it stayed at a bitrate the link couldn't carry and the file took longer than its length to play. Thanks to fedossayenko for the change (#10).
+
+### Known issues
+
+- The app is not signed with an Apple Developer ID or notarized. macOS blocks it the first time; allow it in System Settings › Privacy & Security. After each update macOS asks for Bluetooth access again.
+- Connecting was tested on macOS 27 with Focal Bathys and Sony WH-1000XM4 headphones; other headphones may behave differently (#2).
+- While Blue Bloom is connected, other apps can't use the headphones' microphone.
+- After Blue Bloom disconnects them, some headphones (observed with Focal Bathys) can't be reached for 20 to 35 seconds.
+- At a fixed bitrate, the sound can drop out while macOS scans for nearby devices on the same Bluetooth radio, for example when you come back to the Mac after a pause or open the Sound menu or Control Center. Use Adaptive to avoid that; Blue Bloom can't stop these scans (#4).
+- With LDAC, Adaptive can switch back and forth between two bitrates on some headphones (#8).
+- The sound can stop while System Settings › Bluetooth is open, because that page searches for devices the whole time (#9). This was reported with LDAC at a fixed bitrate and didn't happen in a test with Focal Bathys.
+
 ## [1.0.0] - 2026-11-04
 
 First stable release. It is the same as 0.1.5; the sections below describe how Blue Bloom got here.
@@ -62,7 +88,7 @@ This version updates the Blue Bloom audio device. Blue Bloom asks to update it a
 - Connect no longer has Blue Bloom reach the headphones on its own. When they aren't connected, Blue Bloom asks macOS to connect them and then takes over that connection. When macOS is already using them, Blue Bloom takes them over on the same connection instead of disconnecting them first.
 - The Blue Bloom audio device is only there while Blue Bloom or its command-line tool runs.
 - When Blue Bloom disconnects, is turned off or quits while it is the sound output, it pauses the app that is playing before the output goes back to the previous device, so the music doesn't suddenly play from the speakers. Only the app shown in Now Playing is paused, as when Bluetooth headphones disconnect from macOS.
-- Choosing the highest fixed quality for LDAC or aptX Adaptive shows a note that it can drop out on a busy link, and that Adaptive uses the same bitrate whenever the link allows (#4).
+- Choosing the highest fixed quality for LDAC shows a note that it can drop out on a busy link, and that Adaptive uses the same bitrate whenever the link allows (#4).
 
 ### Fixed
 

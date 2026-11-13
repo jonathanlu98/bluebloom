@@ -91,7 +91,11 @@ static NSString *const kXAPLResponse = @"+XAPL=iPhone,7";
         // AT+IPHONEACCEV=<pair count>,<key>,<value>,…; key 1 = battery level, 0–9 maps to 10%–100% (same Apple guidelines as above)
         NSArray<NSString *> *fields = [[command substringFromIndex:15] componentsSeparatedByString:@","];
         for (NSUInteger i = 1; i + 1 < fields.count; i += 2) {
-            if (fields[i].intValue == 1) [self updateBattery:(fields[i + 1].intValue + 1) * 10];
+            int key = fields[i].intValue;
+            int value = fields[i + 1].intValue;
+            if (key == 1) [self updateBattery:(value + 1) * 10];
+            // Key 2 = dock state (same Apple guidelines); logged so it can be matched against how the link behaves
+            else if (key == 2) [self log:[NSString stringWithFormat:@"Headphones dock state %d", value]];
         }
         [self reply:@[] ok:YES];
     } else if ([upper hasPrefix:@"AT+BIEV="]) {

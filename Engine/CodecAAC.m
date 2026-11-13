@@ -72,6 +72,10 @@ static const size_t kAACInfoOffset = 2;  // Start of the 6-byte codec informatio
     _depth = depth;
 }
 
+- (void)braceFor:(double)seconds {
+    [_adapter braceFor:seconds];
+}
+
 // Bitrate and adaptive switch changes are applied in place (AudioToolbox supports changing bitrate mid-encode) without rebuilding the encoder: a rebuild re-primes and breaks the sequence. A VBR/CBR change needs a new encoder
 - (BOOL)applyConfiguration:(CodecConfiguration *)configuration {
     NSDictionary *p = configuration.parameters;

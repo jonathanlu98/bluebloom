@@ -44,6 +44,7 @@ enum {
     // unless the session had been streaming (then the headphones were powered off or switched away)
     SourceExitHeadsetBusy = 11,
     SourceExitRetryNow = 12,        // User clicked "Retry Now": end the current session and start a new one immediately
+    SourceExitForceNewLink = 13,    // Experiment (BBExperiments forceNewLink): sound came back after a long pause; start a new session
 };
 
 // UID of the virtual device, matches kDeviceUID in Driver/BlueBloomDevice.c
@@ -90,6 +91,9 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device);
 // Captured audio thrown away because the link could not carry it in time, in seconds, counted since the capture started (it
 // starts again with a new session); what is heard as dropouts. 0 without live capture
 @property (nonatomic, readonly) double droppedSeconds;
+// Ahead of radio activity known to be coming: an adaptive bitrate holds one tier lower for this long (codecs with BitrateAdapter,
+// and LDAC's own adaptive bitrate). Nothing when not streaming or at a fixed bitrate
+- (void)braceFor:(double)seconds;
 // Playback delay reported by the headphones (ms), 0 if not reported
 @property (nonatomic, readonly) double headsetDelayMs;
 // UUID bluetoothd assigns to these headphones (macOS uses it as the accessory identifier when publishing the headphones' power source); nil until found

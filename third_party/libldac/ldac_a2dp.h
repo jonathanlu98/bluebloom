@@ -130,6 +130,11 @@ typedef struct {
     int failed_rank;   // tier of the most recent failed step-up; < 0 means none
 } ldac_abr_guard;
 
+// ABR only: ahead of radio activity known to be coming (macOS scans for nearby devices for about 15 s when the user comes back
+// to the Mac), drop one tier at the next ABR tick and stay at or below it for this long (encoded audio duration). Not counted
+// as a failed step-up, so nothing is blocked. Call from the thread that encodes
+void ldac_a2dp_brace(ldac_a2dp *codec, double seconds);
+
 // Get / set the backoff state, used to carry it across encoder instances (a new stream continues from the previous
 // stream's conclusion and starts below the blocked tier). No effect when not in ABR mode
 void ldac_a2dp_get_abr_guard(const ldac_a2dp *codec, ldac_abr_guard *guard);

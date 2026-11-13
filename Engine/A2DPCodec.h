@@ -87,6 +87,8 @@ extern CodecID const CodecIDLDAC NS_SWIFT_NAME(ldac);          // @"ldac"
 @optional
 // Before each encode the streamer reports how many packets are still queued and not yet written to the media channel (for adaptive bitrate)
 - (void)reportQueueDepth:(NSUInteger)depth;
+// Adaptive encoders: hold one tier lower for this long, ahead of radio activity known to be coming (BitrateAdapter braceFor:)
+- (void)braceFor:(double)seconds;
 // RTP sequence number and timestamp of the next packet. When the encoder is replaced while streaming (MediaStreamer replaceEncoderWith:) the new encoder continues counting from the old one, so the headphones do not see packet loss or reordering
 @property (nonatomic) uint16_t rtpSequence;
 @property (nonatomic) uint32_t rtpTimestamp;
