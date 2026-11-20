@@ -10,7 +10,7 @@ body:
 
         **Before you file:**
         1. Reproduce the problem if you can.
-        2. Right after it happens, open **Settings › About › Export Diagnostics…**. It saves `BlueBloom-Diagnostics-<date>.zip` to your Desktop with Blue Bloom's logs and the last two hours of the macOS Bluetooth log. Bluetooth addresses are masked; device names are included.
+        2. Right after it happens, open **Settings › Advanced › Export Diagnostics…**. It saves `BlueBloom-Diagnostics-<date>.zip` to your Desktop with Blue Bloom's logs and the last two hours of the macOS Bluetooth log. Bluetooth addresses are masked; device names are included.
         3. Attach the zip below (drag it into the text box).
   - type: textarea
     id: what-happened
@@ -58,7 +58,7 @@ body:
     id: diagnostics
     attributes:
       label: Diagnostics summary
-      description: Click **Settings › About › Copy Diagnostics** and paste here. It has no device names or addresses.
+      description: Click **Settings › Advanced › Copy Diagnostics** and paste here. It has no device names or addresses.
       render: text
     validations:
       required: true

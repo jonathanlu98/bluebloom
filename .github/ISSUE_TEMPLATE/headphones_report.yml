@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Reports about headphones that haven't been tested are very welcome. Please connect them with Blue Bloom first, play some music for a minute, then export the diagnostics (**Settings › About › Export Diagnostics…**) and attach the zip.
+        Reports about headphones that haven't been tested are very welcome. Please connect them with Blue Bloom first, play some music for a minute, then export the diagnostics (**Settings › Advanced › Export Diagnostics…**) and attach the zip.
         You can write in English or Chinese (中文也可以).
   - type: input
     id: headphones
@@ -39,7 +39,7 @@ body:
     id: diagnostics
     attributes:
       label: Diagnostics summary
-      description: Click **Settings › About › Copy Diagnostics** and paste here.
+      description: Click **Settings › Advanced › Copy Diagnostics** and paste here.
       render: text
     validations:
       required: true

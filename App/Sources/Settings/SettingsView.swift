@@ -58,6 +58,10 @@ struct GeneralPane: View {
                 Toggle(isOn: Binding(get: { model.loginItemEnabled }, set: { model.setLoginItem($0) })) {
                     Text("Open at login")
                 }
+                Toggle(isOn: $settings.checkForUpdatesAutomatically) {
+                    Text("Check for updates automatically")
+                    Text("Checks GitHub Releases once a day for new versions.")
+                }
             }
             Section {
                 Toggle(isOn: $settings.autoSwitchOutput) {
@@ -85,7 +89,7 @@ struct GeneralPane: View {
             }
         }
         .formStyle(.grouped)
-        .frame(height: 420)
+        .frame(height: 470)
     }
 
     // Language names are written in the language itself
@@ -397,6 +401,9 @@ struct AdvancedPane: View {
     @Environment(AppModel.self) private var model
     @State private var confirmReset = false
     @State private var confirmUninstall = false
+    @State private var copied = false
+    @State private var exporting = false
+    @State private var exportError: String?
     // Option-clicking the version in the About pane shows the Experiments section (ExperimentsSections)
     @AppStorage(BBExperimentsVisibleKey) private var showExperiments = false
 
@@ -458,6 +465,14 @@ struct AdvancedPane: View {
                     Button("Open Log") { model.openLog() }
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([LogFile.url]) }
                 }
+                HStack {
+                    Spacer()
+                    Button(copied ? "Copied" : "Copy Diagnostics") { copyDiagnostics() }
+                        .help("Copies a summary for a bug report: versions, settings and what your headphones support, without device names or addresses.")
+                    Button(exporting ? "Exporting…" : "Export Diagnostics…") { exportDiagnostics() }
+                        .disabled(exporting || Snapshot.isActive)
+                        .help("Saves a zip to your Desktop with Blue Bloom's logs and the recent Bluetooth system log, to attach to a bug report. Bluetooth addresses are masked; device names are included.")
+                }
             } header: {
                 Text("Troubleshooting")
             } footer: {
@@ -490,6 +505,10 @@ struct AdvancedPane: View {
         } message: {
             Text(verbatim: model.awdlHelperError ?? "")
         }
+        .alert(Text("Couldn't export diagnostics"), isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
+        } message: {
+            Text(verbatim: exportError ?? "")
+        }
         .confirmationDialog(Text("Reset all Blue Bloom settings?"), isPresented: $confirmReset) {
             Button("Reset and Quit", role: .destructive) {
                 guard !Snapshot.isActive else { return }
@@ -500,6 +519,26 @@ struct AdvancedPane: View {
             Text("Codec priority, device choices and detected codecs will be cleared.")
         }
     }
+
+    // Zip for bug reports, see Diagnostics.export; shown in Finder when done
+    private func exportDiagnostics() {
+        exporting = true
+        Diagnostics.export(model) { result in
+            exporting = false
+            switch result {
+            case .success(let url): NSWorkspace.shared.activateFileViewerSelecting([url])
+            case .failure(let error): exportError = error.message
+            }
+        }
+    }
+
+    // Attached to bug reports (no personal data such as device addresses), see AppModel diagnostics
+    private func copyDiagnostics() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(model.diagnostics, forType: .string)
+        copied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
+    }
 }
 
 // MARK: - About
@@ -507,14 +546,9 @@ struct AdvancedPane: View {
 struct AboutPane: View {
     @Environment(AppModel.self) private var model
     @State private var showingNotices = false
-    @State private var copied = false
-    @State private var exporting = false
-    @State private var exportError: String?
     @AppStorage(BBExperimentsVisibleKey) private var showExperiments = false
     @State private var experimentsNotice = false
 
-    // Public repository; the About pane links to it as the project page (issues, releases)
-    static let projectURL: URL? = URL(string: "https://github.com/jonathanlu98/bluebloom")
     // Width of the body text (intro, acknowledgements, footer notices), a bit narrower than the window and centered
     static let textWidth: CGFloat = 460
 
@@ -544,6 +578,8 @@ struct AboutPane: View {
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
+                updateControl
+                    .padding(.top, 2)
                 // Codecs aren't listed: more and more get compiled in, and the acknowledgements already list each one
                 Text("High-quality Bluetooth audio for your Mac.")
                     .multilineTextAlignment(.center)
@@ -559,26 +595,19 @@ struct AboutPane: View {
                 .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
             }
             .frame(maxWidth: Self.textWidth)
-            // The button row uses the full window width: German and other translations are longer and would be truncated at the body width
+            // Single clean row of native buttons; uses the full window width so longer translations fit comfortably
             HStack(spacing: 10) {
                 Button("Third-Party Notices…") { showingNotices = true }
                 Button("Welcome Notes…") { model.openWelcome() }
-            }
-            HStack(spacing: 10) {
-                Button(copied ? "Copied" : "Copy Diagnostics") { copyDiagnostics() }
-                    .help("Copies a summary for a bug report: versions, settings and what your headphones support, without device names or addresses.")
-                Button(exporting ? "Exporting…" : "Export Diagnostics…") { exportDiagnostics() }
-                    .disabled(exporting || Snapshot.isActive)
-                    .help("Saves a zip to your Desktop with Blue Bloom's logs and the recent Bluetooth system log, to attach to a bug report. Bluetooth addresses are masked; device names are included.")
+                Button {
+                    model.openGitHubToStar()
+                } label: {
+                    Label("Star on GitHub", systemImage: "star")
+                }
             }
             VStack(spacing: 6) {
-                HStack(spacing: 6) {
-                    Text(verbatim: "© 2026 Blue Bloom contributors · MIT License")
-                    if let url = Self.projectURL {
-                        Link("Project Page", destination: url)
-                    }
-                }
-                Text("Blue Bloom doesn't connect to the internet or collect any data. Its log stays on this Mac.")
+                Text(verbatim: "© 2026 Blue Bloom contributors · MIT License")
+                Text("Blue Bloom only connects to GitHub to check for updates (can be turned off in General settings). It collects no data; its log stays on this Mac.")
                 Text(verbatim: Self.trademarks).foregroundStyle(.tertiary)
             }
             .font(.caption)
@@ -591,9 +620,40 @@ struct AboutPane: View {
         .padding(.horizontal, 20)
         .frame(maxWidth: .infinity)
         .sheet(isPresented: $showingNotices) { NoticesSheet() }
-        .alert(Text("Couldn't export diagnostics"), isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
-        } message: {
-            Text(verbatim: exportError ?? "")
+    }
+
+    // Inline update button / status placed directly beneath the version number
+    @ViewBuilder private var updateControl: some View {
+        switch model.updateState {
+        case .idle:
+            Button("Check for Updates…") { model.checkForUpdates(manual: true) }
+                .controlSize(.small)
+                .disabled(Snapshot.isActive)
+        case .checking:
+            Text("Checking for updates…")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .upToDate:
+            Text("Blue Bloom is up to date.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .available(let release):
+            HStack(spacing: 8) {
+                Text("Blue Bloom \(release.version) is available")
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+                Button("Download…") { model.openUpdateDownload() }
+                    .controlSize(.small)
+            }
+        case .failed:
+            HStack(spacing: 8) {
+                Text("Couldn't check for updates.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Check for Updates…") { model.checkForUpdates(manual: true) }
+                    .controlSize(.small)
+                    .disabled(Snapshot.isActive)
+            }
         }
     }
 
@@ -614,26 +674,6 @@ struct AboutPane: View {
     }
 
     static let maxCreditRows = 6
-
-    // Zip for bug reports, see Diagnostics.export; shown in Finder when done
-    private func exportDiagnostics() {
-        exporting = true
-        Diagnostics.export(model) { result in
-            exporting = false
-            switch result {
-            case .success(let url): NSWorkspace.shared.activateFileViewerSelecting([url])
-            case .failure(let error): exportError = error.message
-            }
-        }
-    }
-
-    // Attached to bug reports (no personal data such as device addresses), see AppModel diagnostics
-    private func copyDiagnostics() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(model.diagnostics, forType: .string)
-        copied = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
-    }
 
     // One acknowledgements row: codecs with the same origin are merged into one row (e.g. aptX HD and aptX share libfreeaptx)
     struct CreditRow {

@@ -17,6 +17,11 @@ struct MenuContentView: View {
             }
             DeviceList()
             OutputRow()
+            if let release = model.visibleUpdate {
+                UpdateBannerCard(release: release)
+            } else if model.shouldShowStarPrompt {
+                StarPromptCard()
+            }
             Divider().padding(.horizontal, 4)
             footer
         }
@@ -90,6 +95,70 @@ extension AppModel {
 }
 
 // MARK: - Items needing user action (driver, Bluetooth, headphones, sound output)
+
+// Compact banner shown when a newer GitHub release is available
+struct UpdateBannerCard: View {
+    @Environment(AppModel.self) private var model
+    let release: ReleaseInfo
+
+    var body: some View {
+        Card {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .foregroundStyle(.blue)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Blue Bloom \(release.version) is available")
+                        .font(.system(size: 12, weight: .medium))
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 8) {
+                        Button("Download…") { model.openUpdateDownload() }
+                            .controlSize(.small)
+                        Button("Skip") { model.skipAvailableUpdate() }
+                            .controlSize(.small)
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+}
+
+// One-time gentle milestone card after steady use; clicking either button permanently dismisses it
+struct StarPromptCard: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Card {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "star.fill")
+                    .foregroundStyle(.orange)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enjoying Blue Bloom?")
+                            .font(.system(size: 12, weight: .medium))
+                        Text("A star on GitHub helps others find it.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    HStack(spacing: 8) {
+                        Button("Star on GitHub") { model.openGitHubToStar() }
+                            .controlSize(.small)
+                        Button("No Thanks") { model.dismissStarPrompt() }
+                            .controlSize(.small)
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+}
 
 struct SetupCard: View {
     @Environment(AppModel.self) private var model

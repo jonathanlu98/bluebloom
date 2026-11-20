@@ -11,6 +11,8 @@ This version updates the Blue Bloom audio device. Blue Bloom asks to update it a
 - Settings › Advanced › Wi-Fi Interference: optional "Pause AirDrop and AirPlay while streaming" toggle (off by default). On first enable, Blue Bloom installs a small privileged helper (verified against its build-time signature) that listens to kernel interface events and keeps the Wi-Fi peer-to-peer interface (`awdl0`) down only while audio is actively streaming. This prevents 1–2.5 second dropouts caused by 2.4 GHz AWDL discovery bursts on Macs with shared Wi-Fi and Bluetooth radios. AWDL is restored automatically when playback pauses, disconnects, quits, or if Blue Bloom exits unexpectedly; the helper can also be removed from Settings › Advanced or with the uninstaller.
 - 2.4 GHz Wi-Fi coexistence: Blue Bloom detects when Wi-Fi is on 2.4 GHz, limits effective media packets to fit 2-DH5 frames, automatically uses slower adaptive bitrate recovery with backoff, and shows a notice in the menu recommending 5 GHz or 6 GHz Wi-Fi.
 - Larger capture queue (0.40 s) to absorb short Wi-Fi and Bluetooth scan bursts without dropping audio.
+- Update checks against GitHub Releases: checks once a day automatically (can be turned off in Settings › General) or on demand from Settings › About, showing a non-intrusive download banner in the menu when a new version is available (with an option to skip a version).
+- Settings › About adds a "Star on GitHub" button, and Blue Bloom shows a gentle one-time Star prompt in the menu after steady listening use.
 
 ### Changed
 
@@ -18,7 +20,7 @@ This version updates the Blue Bloom audio device. Blue Bloom asks to update it a
 - Faster idle suspend after silence (4 seconds instead of 10 seconds), so Blue Bloom switches to Idle and restores AWDL / releases the link much sooner when you pause playback.
 - Adaptive bitrate waits 8 seconds of clean playback before stepping back up on 5 GHz (was 4 seconds; 15 seconds automatically on 2.4 GHz), reducing unnecessary step-up/step-down bouncing during short Bluetooth scans.
 - Link-state logging on resume is now always on; the slow adaptive recovery experiment switch now forces slow recovery on 5 GHz (2.4 GHz uses it automatically).
-- Diagnostics report the AWDL helper status and 2-DH5 packet cap state.
+- Moved "Copy Diagnostics" and "Export Diagnostics…" into Settings › Advanced › Troubleshooting, and diagnostics now report the AWDL helper status and 2-DH5 packet cap state.
 
 ### Fixed
 

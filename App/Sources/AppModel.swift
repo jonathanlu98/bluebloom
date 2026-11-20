@@ -52,6 +52,7 @@ final class AppModel {
     var driverError: String?
     // Why the AWDL helper install or removal didn't finish
     var awdlHelperError: String?
+    private(set) var updateState: UpdateState = .idle
     @ObservationIgnored private let awdlClient = AwdlSuppressionClient()
     // Opens the first-run notice window (provided by AppDelegate)
     @ObservationIgnored var openWelcome: () -> Void = {}
@@ -142,6 +143,9 @@ final class AppModel {
     @ObservationIgnored private var stopping = false
     @ObservationIgnored private var startAfterStop = false
     @ObservationIgnored private var connectAfterStop = false
+    @ObservationIgnored private var streamSecondsAccumulator = 0
+    @ObservationIgnored private var currentSessionStreamSeconds = 0
+    @ObservationIgnored private var currentSessionCounted = false
     static let historyLength = 60
 
     // Test harness (BBExperiments): connect on launch instead of waiting for the headphones, for unattended test runs
@@ -164,6 +168,9 @@ final class AppModel {
         }
         LegacyCleanup.run()
         waitForBluetooth()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            self?.maybeAutoCheckForUpdates()
+        }
     }
 
     // The first IOBluetooth call waits for the user to answer the authorization prompt: wait on a background thread so the UI comes up normally; start the device list and connection after authorization
@@ -465,9 +472,30 @@ final class AppModel {
         bitrateHistory.append(liveKbps)
         if bitrateHistory.count > Self.historyLength { bitrateHistory.removeFirst(bitrateHistory.count - Self.historyLength) }
         refreshSessionInfo()
+        trackStreamingUsage()
         refreshSystemState()
         updateOutputRouting()
         publishBattery()
+    }
+
+    // Tracks cumulative listening time and completed sessions once to gate the one-time GitHub Star prompt
+    private func trackStreamingUsage() {
+        guard !settings.starPromptDismissed else { return }
+        if isStreaming {
+            streamSecondsAccumulator += 1
+            currentSessionStreamSeconds += 1
+            if streamSecondsAccumulator >= 60 {
+                streamSecondsAccumulator = 0
+                settings.completedStreamingMinutes += 1
+            }
+            if !currentSessionCounted && currentSessionStreamSeconds >= 180 {
+                currentSessionCounted = true
+                settings.streamingSessionsCount += 1
+            }
+        } else if !isConnected {
+            currentSessionStreamSeconds = 0
+            currentSessionCounted = false
+        }
     }
 
     func refreshSystemState() {
@@ -486,6 +514,7 @@ final class AppModel {
         if now.timeIntervalSince(lastWiFiCheck) >= 5 {
             lastWiFiCheck = now
             refreshAwdlHelperState()
+            maybeAutoCheckForUpdates()
             wifiOn24GHz = A2DPWiFiOn24GHz()
             let summary = A2DPWiFiSummary()
             if summary != lastWiFiSummary {
@@ -810,6 +839,81 @@ final class AppModel {
 
     func openLog() {
         NSWorkspace.shared.open(LogFile.url)
+    }
+
+    // MARK: Updates and GitHub Star
+
+    var visibleUpdate: ReleaseInfo? {
+        guard case .available(let release) = updateState else { return nil }
+        return release.version == settings.skippedUpdateVersion ? nil : release
+    }
+
+    // Show a gentle one-time Star card after 3+ real listening sessions and 60+ minutes of streaming,
+    // only when setup is healthy and no update banner is showing
+    var shouldShowStarPrompt: Bool {
+        guard !Snapshot.isActive,
+              !settings.starPromptDismissed,
+              visibleUpdate == nil,
+              settings.enabled,
+              driverState == .current,
+              !bluetoothDenied,
+              devices.bluetoothOn,
+              isConnected
+        else { return false }
+        return settings.completedStreamingMinutes >= 60 && settings.streamingSessionsCount >= 3
+    }
+
+    func checkForUpdates(manual: Bool) {
+        guard !Snapshot.isActive, updateState != .checking else { return }
+        if !manual && !settings.checkForUpdatesAutomatically { return }
+        let previous = updateState
+        if manual { updateState = .checking }
+        settings.lastUpdateCheck = Date().timeIntervalSince1970
+        UpdateChecker.check(currentVersion: Self.appVersion, manual: manual) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .success(let release):
+                    if let release {
+                        if manual { self.settings.skippedUpdateVersion = "" }
+                        self.updateState = .available(release)
+                        BBLogMessage("Update available: Blue Bloom \(release.version)")
+                    } else {
+                        self.updateState = manual ? .upToDate : .idle
+                        if manual { BBLogMessage("Update check: Blue Bloom \(Self.appVersion) is up to date") }
+                    }
+                case .failure(let error):
+                    self.updateState = manual ? .failed : previous
+                    BBLogMessage("Update check failed: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    private func maybeAutoCheckForUpdates() {
+        guard !Snapshot.isActive, settings.checkForUpdatesAutomatically else { return }
+        if Date().timeIntervalSince1970 - settings.lastUpdateCheck >= UpdateChecker.autoCheckInterval {
+            checkForUpdates(manual: false)
+        }
+    }
+
+    func openUpdateDownload() {
+        guard case .available(let release) = updateState else { return }
+        NSWorkspace.shared.open(release.releaseURL)
+    }
+
+    func skipAvailableUpdate() {
+        guard case .available(let release) = updateState else { return }
+        settings.skippedUpdateVersion = release.version
+    }
+
+    func openGitHubToStar() {
+        settings.starPromptDismissed = true
+        NSWorkspace.shared.open(UpdateChecker.projectURL)
+    }
+
+    func dismissStarPrompt() {
+        settings.starPromptDismissed = true
     }
 
     func openBluetoothSettings() {

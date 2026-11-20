@@ -23,6 +23,12 @@ enum SettingsKey {
     static let acceptedNotice = "AcceptedNotice"
     static let untestedSystemAllowed = "UntestedSystemAllowed"
     static let pauseAWDLWhileStreaming = "PauseAWDLWhileStreaming"
+    static let checkForUpdatesAutomatically = "CheckForUpdatesAutomatically"
+    static let skippedUpdateVersion = "SkippedUpdateVersion"
+    static let lastUpdateCheck = "LastUpdateCheck"
+    static let starPromptDismissed = "StarPromptDismissed"
+    static let completedStreamingMinutes = "CompletedStreamingMinutes"
+    static let streamingSessionsCount = "StreamingSessionsCount"
 }
 
 // Sample rate: follow Apple Music's current track, the highest the codec supports, or a fixed value
@@ -82,6 +88,17 @@ final class AppSettings {
     var untestedSystemAllowed: Int { didSet { defaults.set(untestedSystemAllowed, forKey: SettingsKey.untestedSystemAllowed) } }
     // Temporarily keep awdl0 down while streaming via the optional privileged helper to prevent 2.4 GHz AWDL discovery stalls
     var pauseAWDLWhileStreaming: Bool { didSet { defaults.set(pauseAWDLWhileStreaming, forKey: SettingsKey.pauseAWDLWhileStreaming) } }
+    // Automatically check GitHub Releases once every 24 hours
+    var checkForUpdatesAutomatically: Bool { didSet { defaults.set(checkForUpdatesAutomatically, forKey: SettingsKey.checkForUpdatesAutomatically) } }
+    // Version string (e.g. "1.2.0") the user chose to skip in the menu bar update banner
+    var skippedUpdateVersion: String { didSet { defaults.set(skippedUpdateVersion, forKey: SettingsKey.skippedUpdateVersion) } }
+    // Epoch seconds of the last successful/attempted automatic update check
+    var lastUpdateCheck: Double { didSet { defaults.set(lastUpdateCheck, forKey: SettingsKey.lastUpdateCheck) } }
+    // Once dismissed or clicked, the gentle GitHub Star milestone card never shows again
+    var starPromptDismissed: Bool { didSet { defaults.set(starPromptDismissed, forKey: SettingsKey.starPromptDismissed) } }
+    // Cumulative active streaming minutes and completed listening sessions (used once to gate the Star prompt)
+    var completedStreamingMinutes: Double { didSet { defaults.set(completedStreamingMinutes, forKey: SettingsKey.completedStreamingMinutes) } }
+    var streamingSessionsCount: Int { didSet { defaults.set(streamingSessionsCount, forKey: SettingsKey.streamingSessionsCount) } }
     // UI language: "" follows the system, otherwise a language code; written to this app's AppleLanguages, takes effect after relaunch
     var language: String {
         didSet {
@@ -100,6 +117,7 @@ final class AppSettings {
             SettingsKey.autoSwitchOutput: true,
             SettingsKey.volumeSync: true,
             SettingsKey.menuBarStyle: MenuBarStyle.icon.rawValue,
+            SettingsKey.checkForUpdatesAutomatically: true,
         ])
         enabled = defaults.bool(forKey: SettingsKey.enabled)
         activeDevice = defaults.string(forKey: SettingsKey.activeDevice)
@@ -129,6 +147,12 @@ final class AppSettings {
         acceptedNotice = defaults.integer(forKey: SettingsKey.acceptedNotice)
         untestedSystemAllowed = defaults.integer(forKey: SettingsKey.untestedSystemAllowed)
         pauseAWDLWhileStreaming = defaults.bool(forKey: SettingsKey.pauseAWDLWhileStreaming)
+        checkForUpdatesAutomatically = defaults.bool(forKey: SettingsKey.checkForUpdatesAutomatically)
+        skippedUpdateVersion = defaults.string(forKey: SettingsKey.skippedUpdateVersion) ?? ""
+        lastUpdateCheck = defaults.double(forKey: SettingsKey.lastUpdateCheck)
+        starPromptDismissed = defaults.bool(forKey: SettingsKey.starPromptDismissed)
+        completedStreamingMinutes = defaults.double(forKey: SettingsKey.completedStreamingMinutes)
+        streamingSessionsCount = defaults.integer(forKey: SettingsKey.streamingSessionsCount)
         language = defaults.string(forKey: SettingsKey.language) ?? ""
     }
 
