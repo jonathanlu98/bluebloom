@@ -1,7 +1,9 @@
 #import "A2DPCodec.h"
 #import "A2DPProtocol.h"
 #import "BBLog.h"
+#import <CoreWLAN/CoreWLAN.h>
 #include <math.h>
+#include <stdatomic.h>
 
 CodecID const CodecIDSBC = @"sbc";
 CodecID const CodecIDAAC = @"aac";
@@ -21,6 +23,53 @@ BOOL A2DPIsVendorElement(NSData *element, uint32_t vendor, uint16_t codec, size_
     const uint8_t *bytes = element.bytes;
     return element.length >= MAX(minimumLength, (size_t)8) && bytes[1] == kCodecVendor &&
            A2DPReadLE32(bytes + 2) == vendor && A2DPReadLE16(bytes + 6) == codec;
+}
+
+NSString *A2DPGuardKey(CodecID codec, CodecOptions *options) {
+    return options.deviceAddress.length ? [NSString stringWithFormat:@"%@/%@", codec, options.deviceAddress] : codec;
+}
+
+static _Atomic int gWiFiOn24GHzCache = -1;  // -1 unknown, 0 off/5/6 GHz, 1 on 2.4 GHz
+
+BOOL A2DPWiFiOn24GHz(void) {
+    CWInterface *iface = [CWWiFiClient sharedWiFiClient].interface;
+    BOOL on24 = NO;
+    if (iface && iface.powerOn) {
+        CWChannel *channel = iface.wlanChannel;
+        on24 = channel && channel.channelBand == kCWChannelBand2GHz;
+    }
+    atomic_store_explicit(&gWiFiOn24GHzCache, on24 ? 1 : 0, memory_order_relaxed);
+    return on24;
+}
+
+BOOL A2DPWiFiOn24GHzCached(void) {
+    int cached = atomic_load_explicit(&gWiFiOn24GHzCache, memory_order_relaxed);
+    return cached >= 0 ? cached == 1 : A2DPWiFiOn24GHz();
+}
+
+NSString *A2DPWiFiSummary(void) {
+    CWInterface *iface = [CWWiFiClient sharedWiFiClient].interface;
+    if (!iface) return @"unavailable";
+    if (!iface.powerOn) return @"off";
+    if (iface.activePHYMode == kCWPHYModeNone) return @"not connected";
+    CWChannel *channel = iface.wlanChannel;
+    if (!channel) return @"connected (unknown band)";
+    NSString *band;
+    switch (channel.channelBand) {
+        case kCWChannelBand2GHz: band = @"2.4 GHz"; break;
+        case kCWChannelBand5GHz: band = @"5 GHz"; break;
+        case kCWChannelBand6GHz: band = @"6 GHz"; break;
+        default: band = @"unknown band"; break;
+    }
+    NSString *width;
+    switch (channel.channelWidth) {
+        case kCWChannelWidth20MHz: width = @"20 MHz"; break;
+        case kCWChannelWidth40MHz: width = @"40 MHz"; break;
+        case kCWChannelWidth80MHz: width = @"80 MHz"; break;
+        case kCWChannelWidth160MHz: width = @"160 MHz"; break;
+        default: width = nil; break;
+    }
+    return width ? [NSString stringWithFormat:@"%@ (%@)", band, width] : band;
 }
 
 void A2DPWriteRTPHeader(uint8_t *p, uint16_t sequence, uint32_t timestamp, uint32_t ssrc, BOOL marker) {
@@ -110,6 +159,7 @@ double A2DPBestSampleRate(NSArray<NSNumber *> *rates, double desired, BOOL stric
     copy.sbcAdaptive = _sbcAdaptive;
     copy.aacAdaptive = _aacAdaptive;
     copy.maxSampleRate = _maxSampleRate;
+    copy.deviceAddress = _deviceAddress;
     return copy;
 }
 
@@ -320,6 +370,10 @@ static NSMutableArray<Class> *gCodecClasses;
 
 - (BOOL)prepareWithError:(NSString **)error {
     return YES;
+}
+
+- (uint16_t)effectiveMTUForOutMTU:(uint16_t)outMTU prefer2DH5:(BOOL)prefer2DH5 {
+    return prefer2DH5 && outMTU > kA2DP2DH5L2CAPMTU ? kA2DP2DH5L2CAPMTU : outMTU;
 }
 
 - (id<A2DPEncoder>)encoderForConfiguration:(CodecConfiguration *)configuration outMTU:(uint16_t)outMTU options:(CodecOptions *)options error:(NSString **)error {

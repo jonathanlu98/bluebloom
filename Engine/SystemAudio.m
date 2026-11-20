@@ -9,7 +9,7 @@
 
 // Ring buffer capacity and maximum queue duration: when the queue exceeds the limit the oldest data is dropped, keeping latency to the headphones bounded
 static const double kRingSeconds = 2.0;
-static const double kMaxQueueSeconds = 0.25;
+static const double kMaxQueueSeconds = 0.40;
 
 static NSString *StatusText(OSStatus status) {
     UInt32 code = CFSwapInt32HostToBig((UInt32)status);

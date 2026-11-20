@@ -1,5 +1,6 @@
 #import "BitrateAdapter.h"
 #include <stdatomic.h>
+#import "A2DPCodec.h"
 #import "BBExperiments.h"
 #import "BBLog.h"
 #include <os/lock.h>
@@ -7,24 +8,27 @@
 static const NSUInteger kDropDepth = 3;
 static const NSUInteger kDropTwoDepth = 6;
 static const double kDropInterval = 0.5;     // after dropping a tier, wait this long before looking again (even at a lower bitrate the backlog takes a while to drain)
-static const double kRaiseSeconds = 4;
+static const double kRaiseSeconds = 8;
 static const double kProbeFailSeconds = 3;
 static const double kProbeHoldSeconds = 30;
 static const double kBackoffInitial = 30;
 static const double kBackoffMax = 300;
 
-// Experiment (BBExperiments slowABR): wait longer before trying a higher tier, and much longer after a failed attempt,
-// so the bitrate does not bounce between two tiers at the edge of what the link carries. Not evaluated yet
-static double RaiseSeconds(void) { return [BBExperiments shared].slowABR ? 15 : kRaiseSeconds; }
-static double ProbeHoldSeconds(void) { return [BBExperiments shared].slowABR ? 60 : kProbeHoldSeconds; }
-static double BackoffInitial(void) { return [BBExperiments shared].slowABR ? 120 : kBackoffInitial; }
-static double BackoffMax(void) { return [BBExperiments shared].slowABR ? 600 : kBackoffMax; }
+// Automatic on 2.4 GHz Wi-Fi (or always when BBExperiments.slowABR is on): wait longer before trying a higher tier and
+// much longer after a failed attempt, so the bitrate does not bounce between two tiers under 2.4 GHz radio coexistence
+static BOOL UseSlowRecovery(void) { return [BBExperiments shared].slowABR || A2DPWiFiOn24GHzCached(); }
+static double RaiseSeconds(void) { return UseSlowRecovery() ? 15 : kRaiseSeconds; }
+static double ProbeHoldSeconds(void) { return UseSlowRecovery() ? 60 : kProbeHoldSeconds; }
+static double BackoffInitial(void) { return UseSlowRecovery() ? 120 : kBackoffInitial; }
+static double BackoffMax(void) { return UseSlowRecovery() ? 600 : kBackoffMax; }
 
+// Persisted in kbps (not tier index) so switching to a different bitrate ladder (e.g. SBC XQ → SBC, or AAC 320k → 192k)
+// never applies one ladder's tier index to an unrelated bitrate
 typedef struct {
-    int ceiling;        // highest tier allowed while locked out (-1 not locked)
-    double remaining;   // how much longer to stay locked
+    double ceilingKbps;  // highest bitrate (kbps) allowed while locked out (0 = not locked)
+    double remaining;    // how much longer to stay locked
     double backoff;
-    int failedTier;
+    double failedKbps;   // bitrate (kbps) of the most recent failed trial raise (0 = none)
     CFAbsoluteTime savedAt;
 } Guard;
 
@@ -42,7 +46,7 @@ static os_unfair_lock gGuardLock = OS_UNFAIR_LOCK_INIT;
     double _ceilingUntil, _backoff;
     int _probeTier;     // tier just raised to and still under observation (-1 none)
     double _probeStart;
-    int _failedTier;    // tier of the most recent failed trial raise: only holding at it or a higher tier counts as the link improving and resets the backoff
+    double _failedKbps; // bitrate (kbps) of the most recent failed trial raise (0 none): only holding at it or higher counts as the link improving and resets the backoff
     _Atomic(double) _bracePending;  // braceFor: seconds requested, taken at the next update
     double _braceUntil;
     int _braceTier;     // highest tier allowed until _braceUntil
@@ -57,22 +61,33 @@ static os_unfair_lock gGuardLock = OS_UNFAIR_LOCK_INIT;
         _tier = MAX(0, MIN(start, _tierCount - 1));
         _ceiling = -1;
         _probeTier = -1;
-        _failedTier = -1;
+        _failedKbps = 0;
         _backoff = BackoffInitial();
         os_unfair_lock_lock(&gGuardLock);
         NSValue *saved = gGuards[key];
         os_unfair_lock_unlock(&gGuardLock);
-        if (saved) {
+        if (saved && _tierCount > 0) {
             Guard guard;
             [saved getValue:&guard size:sizeof guard];
-            _backoff = guard.backoff;
-            _failedTier = guard.failedTier;
+            double topKbps = _tierKbps[0].doubleValue;
+            // Only carry over backoff when this ladder actually reaches the bitrate that failed
+            if (guard.failedKbps > 0 && guard.failedKbps <= topKbps + 0.5) {
+                _backoff = guard.backoff > 0 ? guard.backoff : BackoffInitial();
+                _failedKbps = guard.failedKbps;
+            }
             double remaining = guard.remaining - (CFAbsoluteTimeGetCurrent() - guard.savedAt);
-            if (guard.ceiling >= 0 && remaining > 0) {
-                _ceiling = guard.ceiling;
+            if (guard.ceilingKbps > 0 && remaining > 0 && topKbps > guard.ceilingKbps + 0.5) {
+                int ceiling = _tierCount - 1;
+                for (int i = 0; i < _tierCount; i++) {
+                    if (_tierKbps[i].doubleValue <= guard.ceilingKbps + 0.5) {
+                        ceiling = i;
+                        break;
+                    }
+                }
+                _ceiling = ceiling;
                 _ceilingUntil = remaining;
                 if (_ceiling > _tier) {
-                    _tier = MIN(_ceiling, _tierCount - 1);
+                    _tier = _ceiling;
                     BBLog(@"%@ adaptive bitrate: reusing the previous stream's result, starting at %.0f kbps, trying a higher tier in %.0f s", _name, self.kbps, remaining);
                 }
             }
@@ -82,8 +97,14 @@ static os_unfair_lock gGuardLock = OS_UNFAIR_LOCK_INIT;
 }
 
 - (void)dealloc {
-    BOOL blocking = _ceiling >= 0 && _clock < _ceilingUntil;
-    Guard guard = { blocking ? _ceiling : -1, blocking ? _ceilingUntil - _clock : 0, _backoff, _failedTier, CFAbsoluteTimeGetCurrent() };
+    BOOL blocking = _ceiling >= 0 && _ceiling < _tierCount && _clock < _ceilingUntil;
+    Guard guard = {
+        blocking ? _tierKbps[_ceiling].doubleValue : 0,
+        blocking ? _ceilingUntil - _clock : 0,
+        _backoff,
+        _failedKbps,
+        CFAbsoluteTimeGetCurrent(),
+    };
     os_unfair_lock_lock(&gGuardLock);
     if (!gGuards) gGuards = [NSMutableDictionary dictionary];
     gGuards[_key] = [NSValue valueWithBytes:&guard objCType:@encode(Guard)];
@@ -134,7 +155,8 @@ static os_unfair_lock gGuardLock = OS_UNFAIR_LOCK_INIT;
     if (drop && _tier < _tierCount - 1) {
         int tier = MIN(_tier + drop, _tierCount - 1);
         if (_probeTier >= 0 && tier > _probeTier && _clock - _probeStart < kProbeFailSeconds) {
-            _failedTier = _probeTier;
+            if (_failedKbps <= 0) _backoff = BackoffInitial();
+            _failedKbps = _tierKbps[_probeTier].doubleValue;
             _ceiling = _probeTier + 1;
             _ceilingUntil = _clock + _backoff;
             BBLog(@"%@ adaptive bitrate: link cannot sustain %.0f kbps, not trying this tier again for %.0f s", _name, _tierKbps[_probeTier].doubleValue, _backoff);
@@ -147,9 +169,9 @@ static os_unfair_lock gGuardLock = OS_UNFAIR_LOCK_INIT;
     }
     if (_probeTier >= 0 && _clock - _probeStart >= ProbeHoldSeconds()) {
         // Failing at tier A, dropping lower, then settling at a tier below A does not show that A can hold, so do not reset (same as ldac_a2dp.c guard_after_abr)
-        if (_failedTier < 0 || _probeTier <= _failedTier) {
+        if (_failedKbps <= 0 || _tierKbps[_probeTier].doubleValue + 0.5 >= _failedKbps) {
             _backoff = BackoffInitial();
-            _failedTier = -1;
+            _failedKbps = 0;
         }
         _probeTier = -1;
     }

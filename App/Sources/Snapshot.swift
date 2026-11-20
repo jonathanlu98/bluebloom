@@ -74,7 +74,7 @@ enum Snapshot {
         let aptx = CodecConfiguration(codec: .aptX, element: Data(), sampleRate: 44_100, bitsPerSample: 16, nominalKbps: 352.8,
                                       summary: "", parameters: nil)
         model.loadPreview(status: .streaming, configuration: aptx, battery: 35, history: history.map { $0 * 0.39 }, driver: .current,
-                          fallback: (.aptXHD, .unsupportedRate), remoteControlBlocked: true)
+                          fallback: (.aptXHD, .unsupportedRate), remoteControlBlocked: true, wifiOn24GHz: true)
         render(MenuContentView(), model: model, name: "\(language)-menu-aptx", directory: directory)
 
         // Scene 3: first use; first-run notice not accepted, driver not installed, no headphones chosen

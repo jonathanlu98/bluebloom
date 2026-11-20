@@ -21,6 +21,8 @@ typedef void (^RFCOMMOpenHandler)(int result, uint16_t mtu, uint16_t service16, 
 // was failing, was actually Bathys connecting); callers must check it themselves
 @property (nonatomic, copy, nullable) void (^peerConnectedHandler)(NSUUID *_Nullable device);
 @property (nonatomic, copy, nullable) void (^rfcommClosedHandler)(uint8_t channel, int result);
+// Called on the main queue when bluetoothd drops the XPC connection unexpectedly (e.g. daemon restart)
+@property (nonatomic, copy, nullable) void (^connectionLostHandler)(NSString *reason);
 
 - (instancetype)initWithLabel:(NSString *)label;
 // Runs (on the main queue) once check-in is done and the "Bluetooth powered on" state has arrived
@@ -37,8 +39,6 @@ typedef void (^RFCOMMOpenHandler)(int result, uint16_t mtu, uint16_t service16, 
 - (void)connectDevice:(NSUUID *)device;
 - (void)cancelConnection:(NSUUID *)device;
 - (void)openChannel:(NSUUID *)device psm:(uint16_t)psm handler:(ChannelOpenHandler)handler;
-// priority is written to the option kCBL2CAPChannelPriority (a key name found in bluetoothd strings; the meaning of its values is undocumented and was worked out by observation)
-- (void)openChannel:(NSUUID *)device psm:(uint16_t)psm priority:(int64_t)priority handler:(ChannelOpenHandler)handler;
 - (void)closeChannel:(NSUUID *)device psm:(uint16_t)psm;
 - (void)openRFCOMM:(NSUUID *)device channel:(uint8_t)channel handler:(RFCOMMOpenHandler)handler;
 - (void)closeRFCOMM:(NSUUID *)device channel:(uint8_t)channel;

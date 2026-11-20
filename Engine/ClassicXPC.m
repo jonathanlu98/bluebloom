@@ -32,9 +32,12 @@ static const int64_t kCheckInType = 3;
 // Connect options copied from IOBluetooth's kCBOptionServicesKey = [4096]
 static const int64_t kConnectServices = 4096;
 static const int64_t kStatePoweredOn = 5;
+static const int64_t kSyncQueryTimeoutSeconds = 2;
+static const int kResultConnectionLost = -1;
 
 @implementation ClassicSession {
     xpc_connection_t _connection;
+    dispatch_queue_t _replyQueue;
     NSMutableDictionary<NSNumber *, ChannelOpenHandler> *_openHandlers;
     NSMutableDictionary<NSNumber *, RFCOMMOpenHandler> *_rfcommHandlers;
     BOOL _ready;
@@ -44,6 +47,7 @@ static const int64_t kStatePoweredOn = 5;
 - (instancetype)initWithLabel:(NSString *)label {
     if ((self = [super init])) {
         _label = [label copy];
+        _replyQueue = dispatch_queue_create("bluebloom.xpc.reply", DISPATCH_QUEUE_SERIAL);
         _openHandlers = [NSMutableDictionary dictionary];
         _rfcommHandlers = [NSMutableDictionary dictionary];
         _connection = xpc_connection_create_mach_service(kServiceName, dispatch_get_main_queue(), 0);
@@ -95,16 +99,34 @@ static xpc_object_t DeviceArgs(NSUUID *device) {
     return args;
 }
 
-// bluetoothd's record of a device, looked up by address (answered from its records: nothing is sent over the air)
+// bluetoothd's record of a device, looked up by address (answered from its records: nothing is sent over the air).
+// Bounded wait on a dedicated reply queue so a wedged bluetoothd cannot hang the main queue indefinitely
 - (nullable xpc_object_t)deviceRecordForAddress:(NSString *)address {
+    xpc_object_t connection = _connection;
+    if (!connection) return nil;
     xpc_object_t args = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_string(args, "kCBMsgArgAddressString", address.lowercaseString.UTF8String);
     xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_int64(message, kMsgId, kMsgRetrievePeerWithAddress);
     xpc_dictionary_set_value(message, kMsgArgs, args);
-    if (!_connection) return nil;
-    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(_connection, message);
-    xpc_object_t devices = xpc_get_type(reply) == XPC_TYPE_DICTIONARY ? xpc_dictionary_get_value(reply, "kCBMsgArgDevices") : NULL;
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    __block xpc_object_t reply = nil;
+    xpc_connection_send_message_with_reply(connection, message, _replyQueue, ^(xpc_object_t response) {
+        reply = response;
+        dispatch_semaphore_signal(done);
+    });
+    if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, kSyncQueryTimeoutSeconds * NSEC_PER_SEC)) != 0) {
+        fprintf(stderr, "Looking up device by address timed out after %lld s\n", kSyncQueryTimeoutSeconds);
+        return nil;
+    }
+    if (!reply || xpc_get_type(reply) != XPC_TYPE_DICTIONARY) {
+        if (reply && xpc_get_type(reply) == XPC_TYPE_ERROR) {
+            const char *desc = xpc_dictionary_get_string(reply, XPC_ERROR_KEY_DESCRIPTION);
+            fprintf(stderr, "Looking up device by address failed: %s\n", desc ?: "XPC error");
+        }
+        return nil;
+    }
+    xpc_object_t devices = xpc_dictionary_get_value(reply, "kCBMsgArgDevices");
     if (!devices || xpc_get_type(devices) != XPC_TYPE_DICTIONARY) {
         char *description = xpc_copy_description(reply);
         fprintf(stderr, "Looking up device by address failed, reply: %s\n", description);
@@ -168,16 +190,11 @@ static xpc_object_t DeviceArgs(NSUUID *device) {
 }
 
 - (void)openChannel:(NSUUID *)device psm:(uint16_t)psm handler:(ChannelOpenHandler)handler {
-    [self openChannel:device psm:psm priority:0 handler:handler];
-}
-
-- (void)openChannel:(NSUUID *)device psm:(uint16_t)psm priority:(int64_t)priority handler:(ChannelOpenHandler)handler {
     _openHandlers[@(psm)] = [handler copy];
     xpc_object_t args = DeviceArgs(device);
     xpc_dictionary_set_int64(args, "kCBMsgArgPSM", psm);
-    xpc_object_t options = xpc_dictionary_create(NULL, NULL, 0);
-    if (priority) xpc_dictionary_set_int64(options, "kCBL2CAPChannelPriority", priority);
-    xpc_dictionary_set_value(args, "kCBMsgArgOptions", options);
+    // bluetoothd's Classic handleOpenL2CAPChannel only reads kCBL2CAPChannelInMTU from options (kCBL2CAPChannelPriority is LE-only)
+    xpc_dictionary_set_value(args, "kCBMsgArgOptions", xpc_dictionary_create(NULL, NULL, 0));
     [self send:kMsgOpenChannel args:args];
 }
 
@@ -209,6 +226,11 @@ static xpc_object_t DeviceArgs(NSUUID *device) {
 }
 
 - (void)handleEvent:(xpc_object_t)event {
+    if (xpc_get_type(event) == XPC_TYPE_ERROR) {
+        const char *description = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
+        [self handleConnectionError:description ? @(description) : @"XPC connection error"];
+        return;
+    }
     if (xpc_get_type(event) != XPC_TYPE_DICTIONARY) return;
     int64_t messageId = xpc_dictionary_get_int64(event, kMsgId);
     xpc_object_t args = xpc_dictionary_get_value(event, kMsgArgs);
@@ -275,10 +297,33 @@ static xpc_object_t DeviceArgs(NSUUID *device) {
     }
 }
 
+- (void)handleConnectionError:(NSString *)reason {
+    // Ignore errors delivered after our own invalidate
+    if (!_connection) return;
+    xpc_connection_t connection = _connection;
+    _connection = nil;
+    _ready = NO;
+    _readyBlocks = nil;
+    NSDictionary<NSNumber *, ChannelOpenHandler> *openHandlers = [_openHandlers copy];
+    [_openHandlers removeAllObjects];
+    NSDictionary<NSNumber *, RFCOMMOpenHandler> *rfcommHandlers = [_rfcommHandlers copy];
+    [_rfcommHandlers removeAllObjects];
+    void (^lostHandler)(NSString *) = _connectionLostHandler;
+    xpc_connection_cancel(connection);
+    for (ChannelOpenHandler handler in openHandlers.allValues) handler(kResultConnectionLost, 0, 0, -1);
+    for (RFCOMMOpenHandler handler in rfcommHandlers.allValues) handler(kResultConnectionLost, 0, 0, -1);
+    if (lostHandler) lostHandler(reason);
+}
+
 - (void)invalidate {
     if (_connection) {
-        xpc_connection_cancel(_connection);
+        xpc_connection_t connection = _connection;
         _connection = nil;
+        _ready = NO;
+        _readyBlocks = nil;
+        [_openHandlers removeAllObjects];
+        [_rfcommHandlers removeAllObjects];
+        xpc_connection_cancel(connection);
     }
 }
 

@@ -13,6 +13,7 @@ objc_library(
         "-framework", "AVFoundation",
         "-framework", "CoreAudio",
         "-framework", "AudioToolbox",
+        "-framework", "CoreWLAN",
     ],
     visibility = ["//visibility:public"],
     deps = [

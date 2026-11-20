@@ -2,6 +2,39 @@
 
 All notable changes to Blue Bloom are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). Versions before 1.0 are pre-releases.
 
+## [1.1.0] - 2026-11-20
+
+This version updates the Blue Bloom audio device. Blue Bloom asks to update it after you open the new version, which needs an administrator password.
+
+### Added
+
+- Settings › Advanced › Wi-Fi Interference: optional "Pause AirDrop and AirPlay while streaming" toggle (off by default). On first enable, Blue Bloom installs a small privileged helper (verified against its build-time signature) that listens to kernel interface events and keeps the Wi-Fi peer-to-peer interface (`awdl0`) down only while audio is actively streaming. This prevents 1–2.5 second dropouts caused by 2.4 GHz AWDL discovery bursts on Macs with shared Wi-Fi and Bluetooth radios. AWDL is restored automatically when playback pauses, disconnects, quits, or if Blue Bloom exits unexpectedly; the helper can also be removed from Settings › Advanced or with the uninstaller.
+- 2.4 GHz Wi-Fi coexistence: Blue Bloom detects when Wi-Fi is on 2.4 GHz, limits effective media packets to fit 2-DH5 frames, automatically uses slower adaptive bitrate recovery with backoff, and shows a notice in the menu recommending 5 GHz or 6 GHz Wi-Fi.
+- Larger capture queue (0.40 s) to absorb short Wi-Fi and Bluetooth scan bursts without dropping audio.
+
+### Changed
+
+- The Blue Bloom virtual audio device (driver version 8) now requires processes reading its custom audio data property to be an active Blue Bloom client process.
+- Faster idle suspend after silence (4 seconds instead of 10 seconds), so Blue Bloom switches to Idle and restores AWDL / releases the link much sooner when you pause playback.
+- Adaptive bitrate waits 8 seconds of clean playback before stepping back up on 5 GHz (was 4 seconds; 15 seconds automatically on 2.4 GHz), reducing unnecessary step-up/step-down bouncing during short Bluetooth scans.
+- Link-state logging on resume is now always on; the slow adaptive recovery experiment switch now forces slow recovery on 5 GHz (2.4 GHz uses it automatically).
+- Diagnostics report the AWDL helper status and 2-DH5 packet cap state.
+
+### Fixed
+
+- When `bluetoothd` restarts or drops its XPC connection, Blue Bloom now detects the disconnect immediately, tears down cleanly and reconnects automatically instead of hanging. Device lookups also have a 2-second timeout so an unresponsive `bluetoothd` can't freeze the menu bar app.
+- When headphones suspend the stream themselves (`SUSPEND`), Blue Bloom now updates its status to Idle and resumes automatically when playback starts again (or when the headphones send `START`).
+- Removed the unused `kCBL2CAPChannelPriority` option from Classic L2CAP channel open requests.
+
+### Known issues
+
+- The app is not signed with an Apple Developer ID or notarized. macOS blocks it the first time; allow it in System Settings › Privacy & Security. After each update macOS asks for Bluetooth access again.
+- Connecting was tested on macOS 27 with Focal Bathys and Sony WH-1000XM4 headphones; other headphones may behave differently (#2).
+- While Blue Bloom is connected, other apps can't use the headphones' microphone.
+- After Blue Bloom disconnects them, some headphones (observed with Focal Bathys) can't be reached for 20 to 35 seconds.
+- On Macs with shared Wi-Fi and Bluetooth radios, macOS AWDL discovery (AirDrop/AirPlay) and Bluetooth scans can still cause dropouts unless "Pause AirDrop and AirPlay while streaming" is enabled in Settings › Advanced, and System Settings › Bluetooth still runs Classic inquiry while open (#4, #9).
+- With LDAC, Adaptive can switch back and forth between two bitrates on some headphones (#8).
+
 ## [1.0.1] - 2026-11-13
 
 ### Added

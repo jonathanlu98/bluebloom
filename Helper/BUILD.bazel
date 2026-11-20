@@ -1,0 +1,18 @@
+load("@rules_apple//apple:macos.bzl", "macos_command_line_application")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "awdl_helper_lib",
+    srcs = ["AwdlHelper.c"],
+)
+
+# Privileged helper daemon (installed on demand into /Library/PrivilegedHelperTools/):
+# keeps awdl0 down only while Blue Bloom is actively streaming and restores it immediately on pause, stop, or client crash.
+macos_command_line_application(
+    name = "BlueBloomAWDLHelper",
+    bundle_id = "app.bluebloom.awdl-helper",
+    infoplists = ["Info.plist"],
+    minimum_os_version = "14.2",
+    visibility = ["//visibility:public"],
+    deps = [":awdl_helper_lib"],
+)

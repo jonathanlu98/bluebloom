@@ -11,7 +11,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface BitrateAdapter : NSObject
-// name is for logging; tierKbps is each tier's bitrate (high to low); start is the starting tier; key distinguishes backoff state (usually the codec ID)
+// name is for logging; tierKbps is each tier's bitrate (high to low); start is the starting tier; key distinguishes backoff state (usually codec ID + device address)
 - (instancetype)initWithName:(NSString *)name tierKbps:(NSArray<NSNumber *> *)tierKbps startTier:(int)start key:(NSString *)key;
 @property (nonatomic, readonly) int tier;
 @property (nonatomic, readonly) double kbps;

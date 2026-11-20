@@ -17,7 +17,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>0.1</string>
 	<key>CFBundleVersion</key>
-	<string>7</string>
+	<string>8</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>3D080072-B4AA-4B7D-B8AB-55CB985EE077</key>

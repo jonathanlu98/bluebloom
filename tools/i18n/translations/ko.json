@@ -227,5 +227,16 @@
   "Can drop out when the link is busy; Adaptive is steadier": "연결이 혼잡하면 끊길 수 있습니다. 적응형이 더 안정적입니다",
   "The sound dropped out: the Bluetooth link was busy": "소리가 끊겼습니다: Bluetooth 연결이 혼잡했습니다",
   "A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards.": "고정 비트레이트는 낮출 여유가 없습니다. macOS가 같은 무선을 사용할 때 끊깁니다. 예를 들어 잠시 자리를 비웠다가 Mac으로 돌아오면 주변 기기를 스캔하고, 사운드 메뉴나 제어 센터를 열 때도 그렇습니다. 적응형은 그동안 비트레이트를 낮췄다가 끝나면 다시 올립니다.",
-  "Use Adaptive": "적응형 사용"
+  "Use Adaptive": "적응형 사용",
+  "Wi-Fi is on 2.4 GHz — switch to 5 GHz for best stability": "Wi-Fi가 2.4 GHz입니다 — 안정성을 위해 5 GHz로 전환하세요",
+  "2.4 GHz Wi-Fi shares the same radio band as Bluetooth. Blue Bloom automatically limits packet size to a single slot to reduce interference, which can cap the top bitrate; switching Wi-Fi to 5 GHz or 6 GHz gives Bluetooth the full band.": "2.4 GHz Wi-Fi는 Bluetooth와 같은 주파수 대역을 공유합니다. 간섭을 줄이기 위해 Blue Bloom이 패킷 크기를 단일 슬롯으로 자동 제한하므로 최대 비트레이트가 제한될 수 있습니다. Wi-Fi를 5 GHz 또는 6 GHz로 전환하면 Bluetooth가 대역을 온전히 사용할 수 있습니다.",
+  "Wi-Fi Interference": "Wi-Fi 간섭",
+  "Pause AirDrop and AirPlay while streaming": "스트리밍 중 AirDrop 및 AirPlay 일시 중지",
+  "Temporarily disables AWDL during playback to prevent dropouts on Macs with shared Wi-Fi and Bluetooth radios. Needs an administrator password once to install a helper.": "Wi-Fi와 Bluetooth 무선을 공유하는 Mac에서 끊김을 막기 위해 재생 중에만 AWDL을 일시 비활성화합니다. 처음 켤 때 보조 도구를 설치하려면 관리자 암호가 필요합니다.",
+  "AWDL helper": "AWDL 보조 도구",
+  "Update…": "업데이트…",
+  "Remove Helper…": "보조 도구 제거…",
+  "Couldn't update the AWDL helper": "AWDL 보조 도구를 업데이트할 수 없습니다",
+  "The AWDL helper was installed, but didn't start responding. The log has the details.": "AWDL 보조 도구가 설치되었지만 응답하지 않습니다. 자세한 내용은 로그를 확인하세요.",
+  "The AWDL helper failed its signature check. The app may be damaged or modified — download Blue Bloom again from a trusted source.": "AWDL 보조 도구가 서명 확인에 실패했습니다. 앱이 손상되었거나 변조되었을 수 있습니다. 신뢰할 수 있는 출처에서 Blue Bloom을 다시 다운로드하세요."
 }

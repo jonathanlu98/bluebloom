@@ -136,12 +136,6 @@ static NSData *VendorFrame(uint8_t ctype, uint8_t pdu, const uint8_t *params, si
     return label;
 }
 
-- (void)sendKeepalive {
-    if (_closed || !_socket) return;
-    uint8_t capability = kCapabilityEventsSupported;
-    [self sendVendor:kCtypeStatus pdu:kPduGetCapabilities params:&capability length:1 reply:nil];
-}
-
 - (void)respondVendor:(uint8_t)label ctype:(uint8_t)ctype pdu:(uint8_t)pdu params:(const uint8_t *)params length:(size_t)length {
     [self sendLabel:label type:kAvctpResponse frame:VendorFrame(ctype, pdu, params, length)];
 }

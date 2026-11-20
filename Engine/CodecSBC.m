@@ -33,11 +33,12 @@ static __weak SBCEncoder *gCurrentEncoder;
     uint32_t _timestamp;
     NSUInteger _depth;
     NSArray<NSNumber *> *_pools;  // Bitpool of each adaptive tier, high to low
+    NSString *_guardKey;
     BitrateAdapter *_adapter;     // Only present when adaptive
 }
 
 - (instancetype)initWithConfig:(const sbc_a2dp_config *)config minBitpool:(int)minBitpool adaptive:(BOOL)adaptive
-                        outMTU:(uint16_t)outMTU error:(NSString **)error {
+                        outMTU:(uint16_t)outMTU guardKey:(NSString *)guardKey error:(NSString **)error {
     if ((self = [super init])) {
         [gCurrentEncoder invalidate];
         char message[200] = {0};
@@ -48,6 +49,7 @@ static __weak SBCEncoder *gCurrentEncoder;
         }
         _config = *config;
         _minBitpool = minBitpool;
+        _guardKey = [guardKey copy];
         _packet = [NSMutableData dataWithLength:outMTU];
         gCurrentEncoder = self;
         [self setAdaptive:adaptive];
@@ -73,7 +75,7 @@ static __weak SBCEncoder *gCurrentEncoder;
         [kbps addObject:@(sbc_a2dp_frame_length(&tier) * 8.0 * tier.sample_rate / (tier.subbands * tier.block_length) / 1000)];
     }
     _pools = pools;
-    _adapter = [[BitrateAdapter alloc] initWithName:@"SBC" tierKbps:kbps startTier:0 key:CodecIDSBC];
+    _adapter = [[BitrateAdapter alloc] initWithName:@"SBC" tierKbps:kbps startTier:0 key:_guardKey];
     sbc_a2dp_set_bitpool(_sbc, _pools[_adapter.tier].intValue);
 }
 
@@ -234,7 +236,7 @@ static int BlockCount(uint8_t bit) {
         .subbands = [p[@"subbands"] intValue], .allocation = [p[@"allocation"] intValue], .bitpool = [p[@"bitpool"] intValue],
     };
     SBCEncoder *encoder = [[SBCEncoder alloc] initWithConfig:&config minBitpool:[p[@"minBitpool"] intValue] adaptive:[p[@"adaptive"] boolValue]
-                                                      outMTU:outMTU error:error];
+                                                      outMTU:outMTU guardKey:A2DPGuardKey(self.identifier, options) error:error];
     if (encoder) BBLog(@"SBC stream parameters: %zu samples per packet (%.2f ms), %.1f kbps", encoder.framesPerCall, encoder.framesPerCall * 1000.0 / configuration.sampleRate, encoder.bitrateKbps);
     return encoder;
 }

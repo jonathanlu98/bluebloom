@@ -44,7 +44,7 @@ enum {
     // unless the session had been streaming (then the headphones were powered off or switched away)
     SourceExitHeadsetBusy = 11,
     SourceExitRetryNow = 12,        // User clicked "Retry Now": end the current session and start a new one immediately
-    SourceExitForceNewLink = 13,    // Experiment (BBExperiments forceNewLink): sound came back after a long pause; start a new session
+    SourceExitStallRecovery = 14,   // Media channel stalled and headphones did not answer ABORT: force baseband disconnect and reconnect actively
 };
 
 // UID of the virtual device, matches kDeviceUID in Driver/BlueBloomDevice.c

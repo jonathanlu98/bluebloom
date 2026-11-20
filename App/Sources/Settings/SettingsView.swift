@@ -423,6 +423,35 @@ struct AdvancedPane: View {
                 Text("Audio Device")
             }
             Section {
+                Toggle(isOn: Binding(get: { model.settings.pauseAWDLWhileStreaming }, set: { model.setPauseAWDLWhileStreaming($0) })) {
+                    Text("Pause AirDrop and AirPlay while streaming")
+                    Text("Temporarily disables AWDL during playback to prevent dropouts on Macs with shared Wi-Fi and Bluetooth radios. Needs an administrator password once to install a helper.")
+                }
+                .disabled(Snapshot.isActive || model.installingAwdlHelper)
+                if model.awdlHelperState != .missing {
+                    LabeledContent {
+                        switch model.awdlHelperState {
+                        case .current: Label("Installed", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                        case .outdated: Label("Update available", systemImage: "arrow.down.circle.fill").foregroundStyle(.orange)
+                        case .missing: EmptyView()
+                        }
+                    } label: {
+                        Text("AWDL helper")
+                    }
+                    HStack {
+                        Spacer()
+                        if model.awdlHelperState == .outdated {
+                            Button("Update…") { model.installAwdlHelper() }
+                                .disabled(model.installingAwdlHelper)
+                        }
+                        Button("Remove Helper…") { model.uninstallAwdlHelper() }
+                            .disabled(model.installingAwdlHelper)
+                    }
+                }
+            } header: {
+                Text("Wi-Fi Interference")
+            }
+            Section {
                 HStack {
                     Text("Diagnostic log")
                     Spacer()
@@ -443,7 +472,7 @@ struct AdvancedPane: View {
             }
         }
         .formStyle(.grouped)
-        .frame(height: 460)
+        .frame(height: 540)
         .confirmationDialog(Text("Uninstall Blue Bloom?"), isPresented: $confirmUninstall) {
             Button("Uninstall", role: .destructive) { model.uninstall() }
         } message: {
@@ -456,6 +485,10 @@ struct AdvancedPane: View {
         .alert(Text("Couldn't install the Blue Bloom audio device"), isPresented: Binding(get: { model.driverError != nil }, set: { if !$0 { model.driverError = nil } })) {
         } message: {
             Text(verbatim: model.driverError ?? "")
+        }
+        .alert(Text("Couldn't update the AWDL helper"), isPresented: Binding(get: { model.awdlHelperError != nil }, set: { if !$0 { model.awdlHelperError = nil } })) {
+        } message: {
+            Text(verbatim: model.awdlHelperError ?? "")
         }
         .confirmationDialog(Text("Reset all Blue Bloom settings?"), isPresented: $confirmReset) {
             Button("Reset and Quit", role: .destructive) {

@@ -38,6 +38,18 @@ genrule(
     """,
 )
 
+# Designated requirement of the bundled AWDL helper binary, verified after copying as root during on-demand installation
+genrule(
+    name = "awdl_helper_requirement",
+    srcs = ["//Helper:BlueBloomAWDLHelper"],
+    outs = ["AwdlHelperRequirement.swift"],
+    cmd = """
+        requirement=$$(/usr/bin/codesign -d -r- $(location //Helper:BlueBloomAWDLHelper) 2>&1 | /usr/bin/sed -n 's/^# designated => //p')
+        test -n "$$requirement" || { echo "Cannot read the designated requirement of the AWDL helper signature" >&2; exit 1; }
+        printf '// Generated file (awdl_helper_requirement in App/BUILD.bazel), do not edit by hand\\nlet awdlHelperDesignatedRequirement = #"%s"#\\n' "$$requirement" > $@
+    """,
+)
+
 # Notices shipped with the app ("Third-Party Notices" on the About page): Blue Bloom's own MIT license, plus the license, NOTICE and VERSION shipped with each library in third_party
 genrule(
     name = "third_party_notices",
@@ -64,7 +76,10 @@ genrule(
 # Menu bar UI (SwiftUI): status and devices, Settings window, pairing window
 swift_library(
     name = "AppLib",
-    srcs = glob(["Sources/**/*.swift"]) + [":driver_requirement"],
+    srcs = glob(["Sources/**/*.swift"]) + [
+        ":driver_requirement",
+        ":awdl_helper_requirement",
+    ],
     # Engine callbacks all run on the main queue and the UI models are marked @MainActor; Swift 6 strict concurrency checking is off
     copts = ["-swift-version", "5"],
     module_name = "BlueBloomApp",
@@ -92,7 +107,10 @@ genrule(
 # Menu bar app; the virtual device driver sits in Contents/Resources and the app installs it to /Library/Audio/Plug-Ins/HAL
 macos_application(
     name = "BlueBloom",
-    additional_contents = {"//Driver:BlueBloom": "Resources"},
+    additional_contents = {
+        "//Driver:BlueBloom": "Resources",
+        "//Helper:BlueBloomAWDLHelper": "Helpers",
+    },
     # Icon Composer document (layered Liquid Glass icon); actool also renders the flat icon used before macOS 26
     app_icons = glob(["AppIcon.icon/**"]),
     bundle_id = "app.bluebloom",

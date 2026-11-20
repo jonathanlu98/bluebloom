@@ -820,6 +820,52 @@
         }
       }
     },
+    "2.4 GHz Wi-Fi shares the same radio band as Bluetooth. Blue Bloom automatically limits packet size to a single slot to reduce interference, which can cap the top bitrate; switching Wi-Fi to 5 GHz or 6 GHz gives Bluetooth the full band.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2,4-GHz-WLAN teilt sich dasselbe Funkband mit Bluetooth. Blue Bloom begrenzt die Paketgröße automatisch auf einen einzelnen Slot, um Störungen zu verringern, was die maximale Bitrate begrenzen kann; der Wechsel zu 5-GHz- oder 6-GHz-WLAN gibt Bluetooth das gesamte Band frei."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El Wi-Fi de 2,4 GHz comparte la misma banda de radio que Bluetooth. Blue Bloom limita automáticamente el tamaño de paquete a una sola ranura para reducir interferencias, lo que puede limitar la tasa de bits máxima; cambiar el Wi-Fi a 5 GHz o 6 GHz deja la banda libre para Bluetooth."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le Wi-Fi 2,4 GHz partage la même bande radio que le Bluetooth. Blue Bloom limite automatiquement la taille des paquets à un seul créneau pour réduire les interférences, ce qui peut plafonner le débit maximal ; passer le Wi-Fi en 5 GHz ou 6 GHz libère la bande pour le Bluetooth."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2.4 GHz Wi-Fi は Bluetooth と同じ周波数帯を共有します。干渉を減らすため、Blue Bloom はパケットサイズを単一スロットに自動制限しており、最高ビットレートが抑えられる場合があります。Wi-Fi を 5 GHz または 6 GHz に切り替えると Bluetooth が帯域を最大限に使えます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2.4 GHz Wi-Fi는 Bluetooth와 같은 주파수 대역을 공유합니다. 간섭을 줄이기 위해 Blue Bloom이 패킷 크기를 단일 슬롯으로 자동 제한하므로 최대 비트레이트가 제한될 수 있습니다. Wi-Fi를 5 GHz 또는 6 GHz로 전환하면 Bluetooth가 대역을 온전히 사용할 수 있습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2.4 GHz Wi-Fi 与蓝牙共享同一频段。为减少干扰，Blue Bloom 已自动将单包大小限制在单个时隙内，这可能会限制最高码率；将 Wi-Fi 切换到 5 GHz 或 6 GHz 可让蓝牙独占 2.4 GHz 频段。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2.4 GHz Wi-Fi 與藍牙共享同一頻段。為減少干擾，Blue Bloom 已自動將封包大小限制在單一時槽內，這可能會限制最高位元率；將 Wi-Fi 切換到 5 GHz 或 6 GHz 可讓藍牙獨占 2.4 GHz 頻段。"
+          }
+        }
+      }
+    },
     "A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards.": {
       "localizations": {
         "de": {
@@ -1046,6 +1092,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "AAC 位元率"
+          }
+        }
+      }
+    },
+    "AWDL helper": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL-Hilfsprogramm"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auxiliar AWDL"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilitaire AWDL"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL ヘルパー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL 보조 도구"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL 辅助程序"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL 輔助程式"
           }
         }
       }
@@ -3806,6 +3898,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法解除安裝 Blue Bloom"
+          }
+        }
+      }
+    },
+    "Couldn't update the AWDL helper": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL-Hilfsprogramm konnte nicht aktualisiert werden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar el auxiliar AWDL"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de mettre à jour l’utilitaire AWDL"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL ヘルパーを更新できませんでした"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL 보조 도구를 업데이트할 수 없습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法更新 AWDL 辅助程序"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法更新 AWDL 輔助程式"
           }
         }
       }
@@ -6662,6 +6800,52 @@
         }
       }
     },
+    "Pause AirDrop and AirPlay while streaming": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AirDrop und AirPlay beim Streaming pausieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausar AirDrop y AirPlay al transmitir"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettre AirDrop et AirPlay en pause pendant la lecture"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生中は AirDrop と AirPlay を一時停止"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "스트리밍 중 AirDrop 및 AirPlay 일시 중지"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推流时暂停隔空投送和隔空播放"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "串流時暫停 AirDrop 與 AirPlay"
+          }
+        }
+      }
+    },
     "Paused": {
       "localizations": {
         "de": {
@@ -7348,6 +7532,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新安裝⋯"
+          }
+        }
+      }
+    },
+    "Remove Helper…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hilfsprogramm entfernen…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar auxiliar…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer l’utilitaire…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヘルパーを削除…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "보조 도구 제거…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除辅助程序…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移除輔助程式…"
           }
         }
       }
@@ -8692,6 +8922,144 @@
         }
       }
     },
+    "Temporarily disables AWDL during playback to prevent dropouts on Macs with shared Wi-Fi and Bluetooth radios. Needs an administrator password once to install a helper.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deaktiviert AWDL während der Wiedergabe vorübergehend, um Aussetzer auf Macs mit gemeinsam genutztem WLAN- und Bluetooth-Funk zu vermeiden. Benötigt einmalig ein Administratorpasswort zum Installieren eines Hilfsprogramms."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desactiva AWDL temporalmente durante la reproducción para evitar cortes en Mac que comparten radio Wi-Fi y Bluetooth. Requiere contraseña de administrador una vez para instalar un auxiliar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactive temporairement AWDL pendant la lecture pour éviter les coupures sur les Mac partageant la radio Wi-Fi et Bluetooth. Nécessite une fois un mot de passe administrateur pour installer un utilitaire."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi と Bluetooth の無線を共有する Mac で音切れを防ぐため、再生中のみ AWDL を一時的に無効にします。初回のみヘルパーのインストールに管理者パスワードが必要です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi와 Bluetooth 무선을 공유하는 Mac에서 끊김을 막기 위해 재생 중에만 AWDL을 일시 비활성화합니다. 처음 켤 때 보조 도구를 설치하려면 관리자 암호가 필요합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "播放期间临时关闭 AWDL，避免共用 Wi-Fi 与蓝牙射频的 Mac 出现断音。首次开启需输入管理员密码安装辅助程序。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "播放期間暫時停用 AWDL，避免共用 Wi-Fi 與藍牙射頻的 Mac 斷音。首次開啟需輸入管理員密碼安裝輔助程式。"
+          }
+        }
+      }
+    },
+    "The AWDL helper failed its signature check. The app may be damaged or modified — download Blue Bloom again from a trusted source.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Signaturprüfung des AWDL-Hilfsprogramms ist fehlgeschlagen. Die App ist möglicherweise beschädigt oder verändert – lade Blue Bloom erneut aus einer vertrauenswürdigen Quelle."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El auxiliar AWDL no superó la comprobación de firma. La app puede estar dañada o modificada; descarga Blue Bloom de nuevo desde una fuente fiable."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification de signature de l’utilitaire AWDL a échoué. L’app est peut-être endommagée ou modifiée — téléchargez à nouveau Blue Bloom depuis une source fiable."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL ヘルパーの署名検証に失敗しました。アプリが破損または改ざんされている可能性があります。信頼できる配布元から Blue Bloom を再ダウンロードしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL 보조 도구가 서명 확인에 실패했습니다. 앱이 손상되었거나 변조되었을 수 있습니다. 신뢰할 수 있는 출처에서 Blue Bloom을 다시 다운로드하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL 辅助程序未通过签名校验。应用可能已损坏或被修改，请从可信来源重新下载 Blue Bloom。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL 輔助程式未通過簽章驗證。App 可能已損毀或遭修改，請從可信來源重新下載 Blue Bloom。"
+          }
+        }
+      }
+    },
+    "The AWDL helper was installed, but didn't start responding. The log has the details.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das AWDL-Hilfsprogramm wurde installiert, antwortet aber nicht. Details stehen im Protokoll."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El auxiliar AWDL se instaló, pero no empezó a responder. Consulta los detalles en el registro."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’utilitaire AWDL a été installé, mais ne répond pas. Les détails se trouvent dans le journal."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL ヘルパーはインストールされましたが、応答がありませんでした。詳細はログを確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL 보조 도구가 설치되었지만 응답하지 않습니다. 자세한 내용은 로그를 확인하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL 辅助程序已安装，但未开始响应。日志中有详细信息。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AWDL 輔助程式已安裝，但尚未開始回應。日誌中有詳細資訊。"
+          }
+        }
+      }
+    },
     "The Mac volume controls the headphone amplifier (absolute volume) instead of attenuating the signal.": {
       "localizations": {
         "de": {
@@ -9842,6 +10210,52 @@
         }
       }
     },
+    "Update…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualisieren…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizar…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettre à jour…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アップデート…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "업데이트…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新…"
+          }
+        }
+      }
+    },
     "Use": {
       "localizations": {
         "de": {
@@ -10534,6 +10948,98 @@
           "stringUnit": {
             "state": "translated",
             "value": "Blue Bloom 連接期間，其他 App 無法使用耳機的麥克風——包括通話、聽寫與錄音。"
+          }
+        }
+      }
+    },
+    "Wi-Fi Interference": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WLAN-Störungen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interferencia de Wi-Fi"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interférences Wi-Fi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi 干渉"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi 간섭"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi 干扰"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi 干擾"
+          }
+        }
+      }
+    },
+    "Wi-Fi is on 2.4 GHz — switch to 5 GHz for best stability": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WLAN nutzt 2,4 GHz – für beste Stabilität zu 5 GHz wechseln"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi en 2,4 GHz: cambia a 5 GHz para mayor estabilidad"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi sur 2,4 GHz — passez en 5 GHz pour plus de stabilité"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi が 2.4 GHz です — 安定性のため 5 GHz への切替を推奨"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi가 2.4 GHz입니다 — 안정성을 위해 5 GHz로 전환하세요"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi 处于 2.4 GHz —— 切换到 5 GHz 更稳定"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi 處於 2.4 GHz —— 切換至 5 GHz 更穩定"
           }
         }
       }

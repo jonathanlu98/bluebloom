@@ -51,6 +51,8 @@ extern CodecID const CodecIDLDAC NS_SWIFT_NAME(ldac);          // @"ldac"
 @property (nonatomic) BOOL aacAdaptive;
 // Maximum sample rate (Hz); 0 means no limit
 @property (nonatomic) double maxSampleRate;
+// Target Bluetooth device address, filled in by A2DPSource so adaptive bitrate backoff state is scoped per device
+@property (nonatomic, copy, nullable) NSString *deviceAddress;
 + (NSArray<CodecID> *)defaultPriority;
 @end
 
@@ -97,6 +99,8 @@ extern CodecID const CodecIDLDAC NS_SWIFT_NAME(ldac);          // @"ldac"
 - (double)mediaStalled;
 // When only codec parameters change while streaming (configuration bytes unchanged), first ask the encoder whether it can switch in place: YES means no new encoder is needed (for some codecs a new encoder resets the encoding state)
 - (BOOL)applyConfiguration:(CodecConfiguration *)configuration;
+// When the effective outgoing MTU changes while streaming (e.g. Wi-Fi switching between 2.4 GHz and 5 GHz), first ask the encoder whether it can adjust in place without resetting encoding state
+- (BOOL)applyOutMTU:(uint16_t)outMTU;
 @end
 
 @interface A2DPCodec : NSObject
@@ -145,10 +149,24 @@ extern CodecID const CodecIDLDAC NS_SWIFT_NAME(ldac);          // @"ldac"
 - (nullable CodecConfiguration *)configurationForCapability:(NSData *)element sampleRate:(double)rate options:(CodecOptions *)options;
 // Called before configuring the headphones: whether the encoder itself can be opened (e.g. a codec library that needs initialization); default YES
 - (BOOL)prepareWithError:(NSString *_Nullable *_Nullable)error;
+// Effective media channel outgoing MTU to hand to the encoder. When prefer2DH5 is YES (e.g. Wi-Fi active on 2.4 GHz),
+// defaults to capping at kA2DP2DH5L2CAPMTU so each media SDU fits in a single 2-DH5 baseband slot instead of fragmenting
+// across multiple 2.4 GHz TX opportunities; codecs whose packet size is fixed or requires a larger MTU override this
+- (uint16_t)effectiveMTUForOutMTU:(uint16_t)outMTU prefer2DH5:(BOOL)prefer2DH5;
 // Create the encoder after the media channel is open; outMTU is the media channel's outgoing MTU
 - (nullable id<A2DPEncoder>)encoderForConfiguration:(CodecConfiguration *)configuration outMTU:(uint16_t)outMTU
                                              options:(CodecOptions *)options error:(NSString *_Nullable *_Nullable)error;
 @end
+
+// Largest L2CAP SDU payload that fits in a single Bluetooth EDR 2-DH5 packet (679 B ACL payload minus 4 B L2CAP header)
+static const uint16_t kA2DP2DH5L2CAPMTU = 675;
+
+// YES when the Mac's Wi-Fi interface is powered on and associated on a 2.4 GHz channel (shares the 2.4 GHz ISM band with Bluetooth)
+BOOL A2DPWiFiOn24GHz(void);
+// Lock-free cached result of the last A2DPWiFiOn24GHz() query, safe to call on real-time streaming queues
+BOOL A2DPWiFiOn24GHzCached(void);
+// Privacy-safe Wi-Fi band/width summary for logs (e.g. "2.4 GHz (20 MHz)", "5 GHz (80 MHz)", "not connected", "off"; no SSID, BSSID or channel number)
+NSString *A2DPWiFiSummary(void);
 
 // RTP header (RFC 3550, 12 bytes, network byte order): V=2, no padding/extension/CSRC
 static const size_t kRTPHeaderBytes = 12;
@@ -164,5 +182,7 @@ uint32_t A2DPReadLE32(const uint8_t *p);
 uint16_t A2DPReadLE16(const uint8_t *p);
 // Vendor codec element: [media type, 0xFF, vendor ID(4, little-endian), codec ID(2, little-endian), ...]
 BOOL A2DPIsVendorElement(NSData *element, uint32_t vendor, uint16_t codec, size_t minimumLength);
+// Key scoping adaptive bitrate backoff state to a codec and (when streaming to real headphones) its device address
+NSString *A2DPGuardKey(CodecID codec, CodecOptions *_Nullable options);
 
 NS_ASSUME_NONNULL_END

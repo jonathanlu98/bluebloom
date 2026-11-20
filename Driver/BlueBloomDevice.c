@@ -194,6 +194,22 @@ static void ClientBeat(pid_t pid, Boolean alive) {
     SetPublished(publish);
 }
 
+// Whether this client process has recently sent a presence beat (see kBBPropertyClientAlive)
+static Boolean IsActiveClient(pid_t pid) {
+    if (pid <= 0) return false;
+    UInt64 now = mach_absolute_time();
+    Boolean active = false;
+    pthread_mutex_lock(&gClientMutex);
+    for (int i = 0; i < kMaxClients; i++) {
+        if (gClientPIDs[i] == pid && now - gClientBeats[i] <= gClientTimeoutTicks) {
+            active = true;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&gClientMutex);
+    return active;
+}
+
 static void CheckClients(void *context) {
     pthread_mutex_lock(&gClientMutex);
     Boolean publish = ShouldPublishLocked(mach_absolute_time());
@@ -957,7 +973,10 @@ static OSStatus AptX_GetPropertyData(AudioServerPlugInDriverRef inDriver, AudioO
     switch (inObjectID) {
         case kObjectID_PlugIn: return GetPlugInProperty(inAddress, inQualifierDataSize, inQualifierData, inDataSize, outDataSize, outData);
         case kObjectID_Device:
-            if (inAddress->mSelector == kBBPropertyAudioData) return GetAudioData(inQualifierDataSize, inQualifierData, inDataSize, outDataSize, outData);
+            if (inAddress->mSelector == kBBPropertyAudioData) {
+                if (!IsActiveClient(inClientProcessID)) return kAudioHardwareIllegalOperationError;
+                return GetAudioData(inQualifierDataSize, inQualifierData, inDataSize, outDataSize, outData);
+            }
             return GetDeviceProperty(inAddress, inDataSize, outDataSize, outData);
         case kObjectID_Stream_Output: return GetStreamProperty(inObjectID, inAddress, inDataSize, outDataSize, outData);
         case kObjectID_Volume_Output:

@@ -26,6 +26,8 @@ final class AppModel {
     private(set) var remoteVolume: Int = -1
     // The AVRCP channel is held by macOS, so volume can't be handed to the headphone amp (software volume stacks on the headphone amp and may be too quiet)
     private(set) var remoteControlBlocked = false
+    // Wi-Fi is currently associated on a 2.4 GHz channel, sharing the radio band with Bluetooth
+    private(set) var wifiOn24GHz = false
     // When captured audio was last thrown away because the Bluetooth link could not carry it: a dropout (see fixedRateDropouts)
     private(set) var lastDropout: Date?
     private(set) var sourceRate: Double = 0
@@ -35,16 +37,22 @@ final class AppModel {
     private(set) var deviceFloat = false
     private(set) var sourceBitDepth: Int = 0
     private(set) var driverState: DriverState = .missing
+    private(set) var awdlHelperState: DriverState = .missing
+    private(set) var awdlSuppressed = false
     private(set) var virtualDeviceReady = false
     private(set) var blueBloomIsOutput = false
     private(set) var outputName: String?
     private(set) var installingDriver = false
+    private(set) var installingAwdlHelper = false
     // Why the uninstall didn't finish (usually the administrator password prompt was cancelled); Settings shows an alert from it
     var uninstallError: String?
     // Uninstall in progress: Settings disables the uninstall button meanwhile
     private(set) var uninstalling = false
     // Why the driver install didn't finish; shown separately from uninstall
     var driverError: String?
+    // Why the AWDL helper install or removal didn't finish
+    var awdlHelperError: String?
+    @ObservationIgnored private let awdlClient = AwdlSuppressionClient()
     // Opens the first-run notice window (provided by AppDelegate)
     @ObservationIgnored var openWelcome: () -> Void = {}
 
@@ -128,6 +136,9 @@ final class AppModel {
     @ObservationIgnored private var droppedSeconds: Double = 0
     @ObservationIgnored private var returnTimer: Timer?
     @ObservationIgnored private var lastInputIdle: Double = 0
+    @ObservationIgnored private var lastWiFiCheck = Date.distantPast
+    @ObservationIgnored private var lastWiFiSummary = ""
+    @ObservationIgnored private var lastDropoutLog = Date.distantPast
     @ObservationIgnored private var stopping = false
     @ObservationIgnored private var startAfterStop = false
     @ObservationIgnored private var connectAfterStop = false
@@ -404,6 +415,7 @@ final class AppModel {
         self.battery = battery
         refreshSessionInfo()
         updateOutputRouting(previous: previous)
+        updateAwdlSuppression()
         publishBattery()
     }
 
@@ -434,11 +446,20 @@ final class AppModel {
         // Audio thrown away since the last tick is a dropout (the count starts again with a new session)
         let dropped = controller?.droppedSeconds ?? 0
         if isStreaming, dropped > droppedSeconds + 0.02 {
+            let delta = dropped - droppedSeconds
+            let now = Date()
+            let codecName = activeCodec?.displayName ?? configuration?.codec.rawValue ?? "?"
+            let wifi = lastWiFiSummary.isEmpty ? A2DPWiFiSummary() : lastWiFiSummary
             if !fixedRateDropouts, let codec = activeCodec, isFixedWithAdaptiveAvailable(codec) {
-                BBLogMessage(String(format: "Dropout at a fixed %@ bitrate (%.2f s of audio thrown away): the menu suggests Adaptive",
-                                    codec.displayName, dropped - droppedSeconds))
+                BBLogMessage(String(format: "Dropout at a fixed %@ bitrate (%.2f s thrown away, %.0f kbps, Wi-Fi: %@, total %.2f s): the menu suggests Adaptive",
+                                    codec.displayName, delta, liveKbps, wifi, dropped))
+                lastDropoutLog = now
+            } else if now.timeIntervalSince(lastDropoutLog) >= 3 {
+                BBLogMessage(String(format: "Dropout: %.2f s of audio thrown away (%@, %.0f kbps, Wi-Fi: %@, total %.2f s)",
+                                    delta, codecName, liveKbps, wifi, dropped))
+                lastDropoutLog = now
             }
-            lastDropout = Date()
+            lastDropout = now
         }
         droppedSeconds = dropped
         bitrateHistory.append(liveKbps)
@@ -461,6 +482,21 @@ final class AppModel {
         deviceFloat = sampleFormat?.isFloat ?? false
         blueBloomIsOutput = AudioOutput.isBlueBloomDefault
         outputName = AudioOutput.defaultOutputName
+        let now = Date()
+        if now.timeIntervalSince(lastWiFiCheck) >= 5 {
+            lastWiFiCheck = now
+            refreshAwdlHelperState()
+            wifiOn24GHz = A2DPWiFiOn24GHz()
+            let summary = A2DPWiFiSummary()
+            if summary != lastWiFiSummary {
+                if lastWiFiSummary.isEmpty {
+                    BBLogMessage("Wi-Fi: \(summary)")
+                } else {
+                    BBLogMessage("Wi-Fi changed: \(lastWiFiSummary) → \(summary)")
+                }
+                lastWiFiSummary = summary
+            }
+        }
         devices.refresh()
         // The device appeared (just launched, or coreaudiod restarted): start what was waiting for it
         if !wasReady, virtualDeviceReady, !installingDriver, !uninstalling, controller == nil {
@@ -594,6 +630,8 @@ final class AppModel {
         guard !Snapshot.isActive, !uninstalling else { return }
         uninstalling = true
         BBLogMessage("Starting uninstall")
+        awdlClient.releaseSync()
+        awdlSuppressed = false
         stopController { [weak self] in
             guard let self else { return }
             if let error = DriverManager.uninstall() {
@@ -635,6 +673,113 @@ final class AppModel {
             }
             self.waitForVirtualDevice(attempts: 20)
         }
+    }
+
+    // Enables or disables automatic AWDL suppression while streaming; installs the privileged helper on demand when first enabled
+    func setPauseAWDLWhileStreaming(_ enabled: Bool) {
+        guard !Snapshot.isActive else { return }
+        if !enabled {
+            settings.pauseAWDLWhileStreaming = false
+            updateAwdlSuppression()
+            return
+        }
+        awdlHelperState = AwdlHelperManager.state
+        if awdlHelperState == .current {
+            settings.pauseAWDLWhileStreaming = true
+            updateAwdlSuppression()
+            return
+        }
+        installAwdlHelper(enableAfterInstall: true)
+    }
+
+    func installAwdlHelper(enableAfterInstall: Bool = false) {
+        guard !Snapshot.isActive, !installingAwdlHelper else { return }
+        installingAwdlHelper = true
+        awdlHelperError = nil
+        if let error = AwdlHelperManager.install() {
+            awdlHelperError = userFacingHelperError(error)
+            installingAwdlHelper = false
+            return
+        }
+        waitForAwdlHelper(attempts: 10, enableAfterInstall: enableAfterInstall)
+    }
+
+    func uninstallAwdlHelper() {
+        guard !Snapshot.isActive, !installingAwdlHelper else { return }
+        installingAwdlHelper = true
+        awdlHelperError = nil
+        settings.pauseAWDLWhileStreaming = false
+        awdlClient.releaseSync()
+        awdlSuppressed = false
+        if let error = AwdlHelperManager.uninstall() {
+            awdlHelperError = userFacingHelperError(error)
+        }
+        awdlHelperState = AwdlHelperManager.state
+        installingAwdlHelper = false
+    }
+
+    private func waitForAwdlHelper(attempts: Int, enableAfterInstall: Bool) {
+        awdlHelperState = AwdlHelperManager.state
+        if awdlHelperState == .current || attempts <= 0 {
+            installingAwdlHelper = false
+            if awdlHelperState == .current {
+                if enableAfterInstall { settings.pauseAWDLWhileStreaming = true }
+                updateAwdlSuppression()
+            } else {
+                awdlHelperError = String(localized: "The AWDL helper was installed, but didn't start responding. The log has the details.")
+            }
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            self?.waitForAwdlHelper(attempts: attempts - 1, enableAfterInstall: enableAfterInstall)
+        }
+    }
+
+    // Checks AWDL helper health without opening a competing probe socket while suppression is active
+    // (a slow kernel SIOCSIFFLAGS on awdl0 could otherwise delay a short probe and falsely restore AWDL).
+    private func refreshAwdlHelperState() {
+        guard !installingAwdlHelper else { return }
+        if !AwdlHelperManager.isInstalledOnDisk {
+            awdlHelperState = .missing
+            updateAwdlSuppression()
+            return
+        }
+        if awdlSuppressed && awdlHelperState == .current {
+            awdlClient.checkActiveConnection { [weak self] alive in
+                guard let self else { return }
+                if !alive {
+                    self.awdlSuppressed = false
+                    self.probeAwdlHelperStateOffMain()
+                }
+            }
+            return
+        }
+        probeAwdlHelperStateOffMain()
+    }
+
+    private func probeAwdlHelperStateOffMain() {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let state = AwdlHelperManager.state
+            DispatchQueue.main.async {
+                guard let self, !self.installingAwdlHelper else { return }
+                self.awdlHelperState = state
+                self.updateAwdlSuppression()
+            }
+        }
+    }
+
+    private func updateAwdlSuppression() {
+        let want = !Snapshot.isActive && settings.pauseAWDLWhileStreaming && status == .streaming && awdlHelperState == .current
+        awdlClient.setSuppressed(want) { [weak self] active in
+            self?.awdlSuppressed = active
+        }
+    }
+
+    private func userFacingHelperError(_ raw: String) -> String {
+        if raw.contains("signature") || raw.contains("code object") || raw.contains("subcomponent") {
+            return String(localized: "The AWDL helper failed its signature check. The app may be damaged or modified — download Blue Bloom again from a trusted source.")
+        }
+        return userFacingError(raw)
     }
 
     // Map the raw English errors returned by AppleScript / shell to UI text (the raw error is already in the log)
@@ -681,6 +826,8 @@ final class AppModel {
 
     // Before quitting, close the stream and hand back the headphones and sound output
     func prepareForQuit(_ done: @escaping () -> Void) {
+        awdlClient.releaseSync()
+        awdlSuppressed = false
         batteryPublisher.remove()
         // Pause before closing the stream, so the song stops where it was heard in the headphones
         pausePlayback {
@@ -697,8 +844,9 @@ final class AppModel {
     // UI state in snapshot mode
     func loadPreview(status: LinkStatus, configuration: CodecConfiguration?, battery: Int, history: [Double], driver: DriverState,
                      fallback: (CodecID, CodecFallbackReason)? = nil, output: String = "Blue Bloom",
-                     remoteControlBlocked: Bool = false) {
+                     remoteControlBlocked: Bool = false, wifiOn24GHz: Bool = false) {
         self.remoteControlBlocked = remoteControlBlocked
+        self.wifiOn24GHz = wifiOn24GHz
         deviceRate = configuration?.sampleRate ?? 0
         deviceBitDepth = 32
         deviceFloat = true

@@ -227,5 +227,16 @@
   "Can drop out when the link is busy; Adaptive is steadier": "連線繁忙時可能斷續，自適應更穩定",
   "The sound dropped out: the Bluetooth link was busy": "剛才斷音了：藍牙連線繁忙",
   "A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards.": "固定位元率沒有降檔餘地。macOS 使用同一個無線電時就會斷音，例如你離開一會兒再回到 Mac 時它會掃描附近裝置，打開「聲音」選單或控制中心時也會。自適應會在這段期間降低位元率，結束後再升回去。",
-  "Use Adaptive": "改用自適應"
+  "Use Adaptive": "改用自適應",
+  "Wi-Fi is on 2.4 GHz — switch to 5 GHz for best stability": "Wi-Fi 處於 2.4 GHz —— 切換至 5 GHz 更穩定",
+  "2.4 GHz Wi-Fi shares the same radio band as Bluetooth. Blue Bloom automatically limits packet size to a single slot to reduce interference, which can cap the top bitrate; switching Wi-Fi to 5 GHz or 6 GHz gives Bluetooth the full band.": "2.4 GHz Wi-Fi 與藍牙共享同一頻段。為減少干擾，Blue Bloom 已自動將封包大小限制在單一時槽內，這可能會限制最高位元率；將 Wi-Fi 切換到 5 GHz 或 6 GHz 可讓藍牙獨占 2.4 GHz 頻段。",
+  "Wi-Fi Interference": "Wi-Fi 干擾",
+  "Pause AirDrop and AirPlay while streaming": "串流時暫停 AirDrop 與 AirPlay",
+  "Temporarily disables AWDL during playback to prevent dropouts on Macs with shared Wi-Fi and Bluetooth radios. Needs an administrator password once to install a helper.": "播放期間暫時停用 AWDL，避免共用 Wi-Fi 與藍牙射頻的 Mac 斷音。首次開啟需輸入管理員密碼安裝輔助程式。",
+  "AWDL helper": "AWDL 輔助程式",
+  "Update…": "更新…",
+  "Remove Helper…": "移除輔助程式…",
+  "Couldn't update the AWDL helper": "無法更新 AWDL 輔助程式",
+  "The AWDL helper was installed, but didn't start responding. The log has the details.": "AWDL 輔助程式已安裝，但尚未開始回應。日誌中有詳細資訊。",
+  "The AWDL helper failed its signature check. The app may be damaged or modified — download Blue Bloom again from a trusted source.": "AWDL 輔助程式未通過簽章驗證。App 可能已損毀或遭修改，請從可信來源重新下載 Blue Bloom。"
 }

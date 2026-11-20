@@ -65,6 +65,11 @@ static uint8_t AptxFrequencyBit(double rate) {
     return _rate * _frameBytes * 8 / kSamplesPerAptxFrame / 1000;
 }
 
+- (uint16_t)rtpSequence { return _sequence; }
+- (void)setRtpSequence:(uint16_t)sequence { _sequence = sequence; }
+- (uint32_t)rtpTimestamp { return _timestamp; }
+- (void)setRtpTimestamp:(uint32_t)timestamp { _timestamp = timestamp; }
+
 - (NSArray<NSData *> *)encode:(const uint8_t *)pcm error:(NSString **)error {
     size_t pcmBytes = _framesPerCall * kPCMBytesPerSample;
     NSMutableData *packet = [NSMutableData dataWithLength:_payloadOffset + _aptxFrames * _frameBytes];

@@ -245,10 +245,11 @@ struct NowPlayingCard: View {
         let showsFallback = model.fallbackCodec != nil && model.fallbackReason != .none
         let showsVolume = model.isStreaming && model.remoteControlBlocked && model.settings.volumeSync
         let showsDropouts = model.fixedRateDropouts
+        let showsWiFi24 = model.wifiOn24GHz && model.isConnected
         VStack(alignment: .leading, spacing: 12) {
             StreamFormatMenu(configuration: configuration)
             // Notices are grouped, with tighter spacing inside the group
-            if showsFallback || showsVolume || showsDropouts {
+            if showsFallback || showsVolume || showsDropouts || showsWiFi24 {
                 VStack(alignment: .leading, spacing: 6) {
                     if showsFallback, let fallback = model.fallbackCodec {
                         Label {
@@ -259,25 +260,32 @@ struct NowPlayingCard: View {
                         .labelStyle(.compact)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                }
-                if showsVolume {
-                    Label("Headphone volume isn't synced with the Mac", systemImage: "speaker.badge.exclamationmark")
-                        .labelStyle(.compact)
-                        .font(.system(size: 11)).foregroundStyle(.orange)
-                        .help(Text("The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones."))
-                }
-                // Audio was thrown away at a fixed bitrate within the last minute (AppModel.fixedRateDropouts)
-                if showsDropouts {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("The sound dropped out: the Bluetooth link was busy", systemImage: "waveform.badge.exclamationmark")
+                    }
+                    if showsVolume {
+                        Label("Headphone volume isn't synced with the Mac", systemImage: "speaker.badge.exclamationmark")
                             .labelStyle(.compact)
                             .font(.system(size: 11)).foregroundStyle(.orange)
-                            .help(Text("A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards."))
-                        Button("Use Adaptive") { model.useAdaptiveBitrate() }
-                            .buttonStyle(.link)
-                            .font(.system(size: 11))
+                            .help(Text("The headphones refused Blue Bloom's remote control channel (some only accept it right after connecting), so the Mac volume is applied in software on top of the headphones' own volume. If it sounds too quiet, turn up the headphones. Blue Bloom keeps retrying; if this doesn't go away, reconnect the headphones."))
                     }
-                }
+                    // Audio was thrown away at a fixed bitrate within the last minute (AppModel.fixedRateDropouts)
+                    if showsDropouts {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("The sound dropped out: the Bluetooth link was busy", systemImage: "waveform.badge.exclamationmark")
+                                .labelStyle(.compact)
+                                .font(.system(size: 11)).foregroundStyle(.orange)
+                                .help(Text("A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards."))
+                            Button("Use Adaptive") { model.useAdaptiveBitrate() }
+                                .buttonStyle(.link)
+                                .font(.system(size: 11))
+                        }
+                    }
+                    if showsWiFi24 {
+                        Label("Wi-Fi is on 2.4 GHz — switch to 5 GHz for best stability", systemImage: "wifi.exclamationmark")
+                            .labelStyle(.compact)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .help(Text("2.4 GHz Wi-Fi shares the same radio band as Bluetooth. Blue Bloom automatically limits packet size to a single slot to reduce interference, which can cap the top bitrate; switching Wi-Fi to 5 GHz or 6 GHz gives Bluetooth the full band."))
+                    }
                 }
             }
             // Right of the bitrate figure: the virtual device's format (apps hand their audio to Blue Bloom in this format; the codec row above is the format streamed to the headphones).

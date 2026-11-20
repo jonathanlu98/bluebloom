@@ -28,6 +28,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)replaceEncoderWith:(id<A2DPEncoder> _Nullable (^)(void))factory;
 // Have the current encoder switch to new parameters in place (A2DPEncoder applyConfiguration:, run on the streaming queue); returns NO if the encoder does not support it
 - (BOOL)applyConfiguration:(CodecConfiguration *)configuration;
+// Have the current encoder adjust to a new effective outgoing MTU in place (A2DPEncoder applyOutMTU:, run on the streaming queue); returns NO if the encoder does not support it
+- (BOOL)applyOutMTU:(uint16_t)outMTU;
 // On return, nothing more will be sent on the streaming queue (the socket can then be closed safely)
 - (void)pause;
 // Has an adaptive encoder hold one tier lower for this long (A2DPEncoder braceFor:, run on the streaming queue)

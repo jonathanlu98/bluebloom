@@ -20,10 +20,15 @@ static const struct { double rate; uint8_t bit; } kLdacRates[] = {
     { 44100, kLdacFreq44100 }, { 48000, kLdacFreq48000 }, { 88200, kLdacFreq88200 }, { 96000, kLdacFreq96000 },
 };
 
-// ABR step-up backoff state (ldac_a2dp.h ldac_abr_guard) is kept across encoders: when the stream restarts after idle suspend or is closed and reconfigured, it reuses the previous stream's conclusion,
-// so each new stream does not start at 990 and drop two tiers right away. Only one pair of headphones streams at a time, so one copy is enough; the block time is reduced by the elapsed wall-clock interval
-static ldac_abr_guard gAbrGuard = { -1, 0, 0, -1 };
-static CFAbsoluteTime gAbrGuardSavedAt;
+typedef struct {
+    ldac_abr_guard guard;
+    CFAbsoluteTime savedAt;
+} LDACGuardEntry;
+
+// ABR step-up backoff state (ldac_a2dp.h ldac_abr_guard) is kept per device across encoders: when the stream restarts after
+// idle suspend or is closed and reconfigured, it reuses the previous stream's conclusion for those headphones without carrying
+// one pair's ceiling over to another; the block time is reduced by the elapsed wall-clock interval
+static NSMutableDictionary<NSString *, NSValue *> *gAbrGuards;
 static os_unfair_lock gAbrGuardLock = OS_UNFAIR_LOCK_INIT;
 
 @interface LDACEncoder : NSObject <A2DPEncoder>
@@ -36,9 +41,11 @@ static os_unfair_lock gAbrGuardLock = OS_UNFAIR_LOCK_INIT;
     uint32_t _timestamp;
     int _lastKbps;
     BOOL _adaptive;
+    NSString *_guardKey;
 }
 
-- (instancetype)initWithRate:(double)rate quality:(NSInteger)quality outMTU:(uint16_t)outMTU error:(NSString **)error {
+- (instancetype)initWithRate:(double)rate quality:(NSInteger)quality outMTU:(uint16_t)outMTU guardKey:(NSString *)guardKey
+                       error:(NSString **)error {
     if ((self = [super init])) {
         char message[200] = {0};
         _ldac = ldac_a2dp_open((int)rate, kLdacChannelStereo, (int)quality, outMTU - kRTPHeaderBytes, message, sizeof message);
@@ -48,15 +55,20 @@ static os_unfair_lock gAbrGuardLock = OS_UNFAIR_LOCK_INIT;
         }
         _payload = [NSMutableData dataWithLength:outMTU];
         _adaptive = quality == kLdacQualityAdaptive;
+        _guardKey = [guardKey copy];
         if (_adaptive) {
             os_unfair_lock_lock(&gAbrGuardLock);
-            ldac_abr_guard guard = gAbrGuard;
-            guard.remaining -= CFAbsoluteTimeGetCurrent() - gAbrGuardSavedAt;
+            NSValue *saved = gAbrGuards[_guardKey];
             os_unfair_lock_unlock(&gAbrGuardLock);
-            ldac_a2dp_set_abr_guard(_ldac, &guard);
-            if (guard.ceiling >= 0 && guard.remaining > 0) {
-                BBLog(@"LDAC adaptive bitrate: reusing the previous stream's conclusion, starting at %d kbps, trying a higher tier again in %.0f s", ldac_a2dp_bitrate_kbps(_ldac),
-                    guard.remaining);
+            if (saved) {
+                LDACGuardEntry entry;
+                [saved getValue:&entry size:sizeof entry];
+                entry.guard.remaining -= CFAbsoluteTimeGetCurrent() - entry.savedAt;
+                ldac_a2dp_set_abr_guard(_ldac, &entry.guard);
+                if (entry.guard.ceiling >= 0 && entry.guard.remaining > 0) {
+                    BBLog(@"LDAC adaptive bitrate: reusing the previous stream's conclusion, starting at %d kbps, trying a higher tier again in %.0f s", ldac_a2dp_bitrate_kbps(_ldac),
+                        entry.guard.remaining);
+                }
             }
         }
         _lastKbps = ldac_a2dp_bitrate_kbps(_ldac);
@@ -66,9 +78,11 @@ static os_unfair_lock gAbrGuardLock = OS_UNFAIR_LOCK_INIT;
 
 - (void)dealloc {
     if (_ldac && _adaptive) {
+        LDACGuardEntry entry = { { -1, 0, 0, -1 }, CFAbsoluteTimeGetCurrent() };
+        ldac_a2dp_get_abr_guard(_ldac, &entry.guard);
         os_unfair_lock_lock(&gAbrGuardLock);
-        ldac_a2dp_get_abr_guard(_ldac, &gAbrGuard);
-        gAbrGuardSavedAt = CFAbsoluteTimeGetCurrent();
+        if (!gAbrGuards) gAbrGuards = [NSMutableDictionary dictionary];
+        gAbrGuards[_guardKey] = [NSValue valueWithBytes:&entry objCType:@encode(LDACGuardEntry)];
         os_unfair_lock_unlock(&gAbrGuardLock);
     }
     if (_ldac) ldac_a2dp_close(_ldac);
@@ -192,13 +206,20 @@ static os_unfair_lock gAbrGuardLock = OS_UNFAIR_LOCK_INIT;
                                          nominalKbps:kbps summary:summary parameters:@{ @"quality": @(preset.identifier) }];
 }
 
+// libldac always packs at most 661 B of frames (<= 674 B L2CAP SDU, fitting a single 2-DH5 baseband packet) regardless of MTU,
+// and rejects outMTU < kLdacMinL2CAPMTU (679)
+- (uint16_t)effectiveMTUForOutMTU:(uint16_t)outMTU prefer2DH5:(BOOL)prefer2DH5 {
+    return outMTU;
+}
+
 - (id<A2DPEncoder>)encoderForConfiguration:(CodecConfiguration *)configuration outMTU:(uint16_t)outMTU options:(CodecOptions *)options error:(NSString **)error {
     if (outMTU < kLdacMinL2CAPMTU) {
         if (error) *error = [NSString stringWithFormat:@"Media channel MTU %u is below the %d LDAC requires", outMTU, kLdacMinL2CAPMTU];
         return nil;
     }
     NSInteger quality = [configuration.parameters[@"quality"] integerValue];
-    return [[LDACEncoder alloc] initWithRate:configuration.sampleRate quality:quality outMTU:outMTU error:error];
+    return [[LDACEncoder alloc] initWithRate:configuration.sampleRate quality:quality outMTU:outMTU
+                                    guardKey:A2DPGuardKey(self.identifier, options) error:error];
 }
 
 @end

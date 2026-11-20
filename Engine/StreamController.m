@@ -128,8 +128,8 @@
         [self launch];
         return;
     }
-    if (exitCode == SourceExitForceNewLink) {
-        BBLog(@"Force new link (experiment): connecting again in 1 s");
+    if (exitCode == SourceExitStallRecovery) {
+        BBLog(@"Media channel stall recovery: reconnecting in 1 s");
         _connectRequested = YES;
         NSUInteger current = _generation;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{

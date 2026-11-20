@@ -14,28 +14,13 @@
 #import "TestSources.h"
 #include "VirtualDeviceProtocol.h"
 
-// Experiments (BBExperiments): vendor commands of the Broadcom host controller class in IOBluetooth, looked up at run time
-@interface NSObject (BlueBloomBroadcomController)
-+ (id)defaultController;
-- (IOReturn)BluetoothHCIWriteHighPriorityConnection:(unsigned short)handle priority:(unsigned char)priority;
-- (int)BroadcomHCILESetScanEnableEnhanced:(unsigned char)enable
-                                 scanType:(unsigned char)scanType
-                         filterDuplicates:(unsigned char)filterDuplicates
-             bypassFilterDuplicateControl:(unsigned char)bypassFilterDuplicateControl
-                               targetCore:(unsigned char)targetCore
-                               scanPeriod:(unsigned short)scanPeriod
-                             scanDuration:(unsigned short)scanDuration;
-@end
-
-// The Broadcom controller object if this Mac has one and it implements the selector, else nil
-static id BroadcomController(SEL selector) {
-    Class class = NSClassFromString(@"BroadcomHostController");
-    id controller = [class respondsToSelector:@selector(defaultController)] ? [class defaultController] : nil;
-    return [controller respondsToSelector:selector] ? controller : nil;
-}
-
 static const uint8_t kLocalSeid = 1;
 static const double kRequestTimeout = 5;
+// When the media channel is stalled (baseband flow-off / DSP deadlock), our Classic L2CAP queue has non-flushable TX packets
+// ahead of ABORT, so ABORT either gets answered right away or never leaves the controller: fail fast and force a fresh link
+static const double kStallAbortTimeout = 1.5;
+// How often to check whether Wi-Fi switched between 2.4 GHz and 5 GHz while streaming (to cap/uncap effective MTU to 2-DH5)
+static const double kWiFiCheckInterval = 5.0;
 // Grabbing the signaling channel: one request at a time, sent every 40ms from the next free session (overlapping requests on
 // the same session get 1803 "Already connected" from bluetoothd) until we win or time out. Before the link is up a request is
 // refused within about a millisecond (1804), so this costs no reaction time; once the link is up only one request reaches the
@@ -113,7 +98,7 @@ static const double kConfigureAfterLinkSeconds = 1.8;
 static const double kAvrcpSetupWindow = kConfigureAfterLinkSeconds;
 // SUSPEND after the capture source has been silent this long, freeing the air interface; START again when there is sound
 // (the headphones buffer about 220ms; the first bit is covered by the capture ring buffer)
-static const double kIdleSuspendSeconds = 10;
+static const double kIdleSuspendSeconds = 4;
 NSString *const VirtualDeviceUID = @kBBDeviceUID;
 // Maximum number of close-and-reopen attempts after the media channel is refused
 static const NSUInteger kMediaRetries = 2;
@@ -308,13 +293,13 @@ typedef void (^ReplyBlock)(uint8_t messageType, const uint8_t *payload, size_t l
     LinkStatus _linkStatus;
     int _batteryPercent;
     BOOL _idleSuspended;
+    BOOL _remoteSuspended;
+    BOOL _remoteSuspendSawSilence;
     uint64_t _suspendedTicks;
-    uint64_t _lastKeepaliveTicks;
     uint64_t _streamingSinceTicks;
-    BOOL _keepWarmLogged;
-    BluetoothConnectionHandle _highPriorityHandle;   // 0 while the priority is not raised
-    BOOL _priorityWanted;
-    BOOL _forcedScanActive;
+    BOOL _wifi24GHz;
+    uint16_t _encoderMTU;
+    uint64_t _lastWiFiCheckTicks;
     BOOL _testFinished;
     BOOL _commandInFlight;
 
@@ -397,19 +382,40 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
         BBLog(@"System audio source: %@", _systemAudio.formatDescription);
         [self watchSampleRate];
     }
+    __weak typeof(self) weakSelf = self;
+    void (^watchSession)(ClassicSession *, BOOL) = ^(ClassicSession *session, BOOL critical) {
+        NSString *label = session.label;
+        __weak ClassicSession *weakSession = session;
+        session.connectionLostHandler = ^(NSString *reason) {
+            typeof(self) strongSelf = weakSelf;
+            if (!strongSelf || strongSelf->_stopping) return;
+            ClassicSession *s = weakSession;
+            BOOL isCritical = critical || (s && s == strongSelf->_signalSession);
+            if (isCritical) {
+                [strongSelf stopWithReason:[NSString stringWithFormat:@"Lost connection to bluetoothd on %@ (%@)", label, reason] exitCode:2];
+            } else {
+                BBLog(@"%@: lost connection to bluetoothd (%@)", label, reason);
+            }
+        };
+    };
     for (NSUInteger i = 0; i < kRaceSessions; i++) {
-        [_raceSessions addObject:[[ClassicSession alloc] initWithLabel:[NSString stringWithFormat:@"session %lu", (unsigned long)i]]];
+        ClassicSession *session = [[ClassicSession alloc] initWithLabel:[NSString stringWithFormat:@"session %lu", (unsigned long)i]];
+        watchSession(session, i == 0);
+        [_raceSessions addObject:session];
     }
     // bluetoothd allows only one channel per session per device, so the media channel uses its own session
     _mediaSession = [[ClassicSession alloc] initWithLabel:@"media session"];
+    watchSession(_mediaSession, YES);
     // The HFP channel number comes from the system's SDP cache; once we grab it macOS cannot connect HFP, so it does not
     // publish the headphones' call device
     _handsfreeChannel = [self handsfreeChannelFromSDP];
     _handsfreeRefusals = [NSMutableDictionary dictionary];
     _handsfreeSession = [[ClassicSession alloc] initWithLabel:@"hands-free session"];
+    watchSession(_handsfreeSession, NO);
     // About 2 s after connecting, the headphones connect AVRCP themselves (observed RecvConnectReq psm=23); connecting first
     // keeps macOS from getting the AVRCP channel
     _avrcpSession = [[ClassicSession alloc] initWithLabel:@"AVRCP session"];
+    watchSession(_avrcpSession, NO);
     if (_handsfreeChannel) {
         BBLog(@"Headphones' HFP service is on RFCOMM channel %u, grabbing it while connecting", _handsfreeChannel);
     } else {
@@ -417,7 +423,6 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
         // reading continues during the grab
         BBLog(@"Cannot read the headphones' HFP service channel yet, will keep reading while connecting");
     }
-    __weak typeof(self) weakSelf = self;
     [_raceSessions[0] whenReady:^{ [weakSelf sessionsReady]; }];
 }
 
@@ -886,6 +891,7 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
     if (now - _linkPollTicks < BBSecondsToTicks(kLinkPollSeconds)) return NO;
     _linkPollTicks = now;
     int64_t state = [_raceSessions[0] linkStateForAddress:_address];
+    if (state < 0) return NO;
     if (state != 0) {
         if (!_awaitingLinkDown || !_linkStateKnown) {
             BBLog(@"The headphones are connected to this Mac (bluetoothd state %lld), leaving that link alone until it goes down", state);
@@ -1022,10 +1028,12 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
     _signalSession = nil;
     _pendingReply = nil;
     _signalBuffer.length = 0;
-    if (_inPlace && _inPlaceRetries < kInPlaceSignalRetries && [_raceSessions[0] linkStateForAddress:_address] == 2) {
+    NSUInteger maxRetries = _inPlace ? kInPlaceSignalRetries : 1;
+    BOOL canRetryOnLink = _inPlace || ![_audioGuard systemHasHeadphonesMusicOutput];
+    if (canRetryOnLink && _inPlaceRetries < maxRetries && [_raceSessions[0] linkStateForAddress:_address] == 2) {
         _inPlaceRetries++;
         BBLog(@"Gave up a fake signaling channel (%@), requesting another on the same link (%lu/%lu)", reason,
-            (unsigned long)_inPlaceRetries, (unsigned long)kInPlaceSignalRetries);
+            (unsigned long)_inPlaceRetries, (unsigned long)maxRetries);
         _state = SourceStateRacing;
         _refusalStreak = 0;
         _roundDeadline = mach_absolute_time() + BBSecondsToTicks(kRoundTimeout);
@@ -1076,6 +1084,10 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
 }
 
 - (void)sendCommand:(uint8_t)signal payload:(const uint8_t *)payload length:(size_t)length reply:(ReplyBlock)reply {
+    [self sendCommand:signal payload:payload length:length timeout:kRequestTimeout exitCode:4 reply:reply];
+}
+
+- (void)sendCommand:(uint8_t)signal payload:(const uint8_t *)payload length:(size_t)length timeout:(double)timeout exitCode:(int)exitCode reply:(ReplyBlock)reply {
     uint8_t label = _nextLabel;
     _nextLabel = (_nextLabel + 1) & 0x0F;
     NSMutableData *packet = [NSMutableData dataWithLength:2 + length];
@@ -1089,10 +1101,10 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
     NSUInteger sequence = ++_pendingSequence;
     BBLog(@"→ %@ command  %@", SignalName(signal), BBHex(bytes, packet.length));
     [self write:packet];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kRequestTimeout * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeout * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (self->_pendingReply && self->_pendingSequence == sequence) {
             self->_pendingReply = nil;
-            [self stopWithReason:[NSString stringWithFormat:@"No response to %@ within %.0f s", SignalName(signal), kRequestTimeout] exitCode:4];
+            [self stopWithReason:[NSString stringWithFormat:@"No response to %@ within %.1f s", SignalName(signal), timeout] exitCode:exitCode];
         }
     });
 }
@@ -1218,6 +1230,11 @@ NSString *A2DPDeviceIdentity(IOBluetoothDevice *device) {
             if (_state == SourceStateStreaming) {
                 [_streamer pause];
                 _state = SourceStateMediaReady;
+                _remoteSuspended = YES;
+                _remoteSuspendSawSilence = !_systemAudio || _systemAudio.secondsSinceSound > 1.0;
+                _suspendedTicks = mach_absolute_time();
+                [self reportStatus:LinkStatusIdle];
+                BBLog(@"Headphones suspended the stream (SUSPEND); waiting for START or new playback");
             }
             break;
         case kSigClose:
@@ -1754,60 +1771,10 @@ static const double kQuietPollInterval = 0.02;
     }];
 }
 
-// Experiment: ask the controller to give the headphones' link high priority while audio is streaming, and take it back
-// when the stream pauses or ends. CoreBluetooth's own ACL priority setting needs the com.apple.bluetooth.system
-// entitlement; this sends the Broadcom vendor command directly instead. The command reports success, but no measurement
-// so far shows that it changes anything
-- (void)applyHighPriority:(BOOL)on {
-    if (on ? ![BBExperiments shared].highPriority : _highPriorityHandle == 0) return;
-    SEL selector = @selector(BluetoothHCIWriteHighPriorityConnection:priority:);
-    id controller = BroadcomController(selector);
-    if (!controller) {
-        if (on) BBLog(@"High priority (experiment): not available with this Mac's Bluetooth controller");
-        _highPriorityHandle = 0;
-        return;
-    }
-    BluetoothConnectionHandle handle = on ? _device.connectionHandle : _highPriorityHandle;
-    BOOL assumed = handle == 0 || handle == kBluetoothConnectionHandleNone;
-    // IOBluetooth knows the handle of links it opened itself and has reported none for this one, which is taken over
-    // through bluetoothd. Assume the first link then (handles count up from 1 on these controllers): right while the
-    // headphones are the only classic device connected, and the log says it was assumed
-    if (assumed) handle = 1;
-    IOReturn result = [controller BluetoothHCIWriteHighPriorityConnection:handle priority:on ? 1 : 0];
-    BBLog(@"High priority %@ (experiment): connection handle 0x%04X%@, result 0x%X", on ? @"on" : @"off", handle,
-          assumed ? @" (assumed, IOBluetooth reports none)" : @"", result);
-    _highPriorityHandle = on ? handle : 0;
-}
-
-// Test harness: ask a Broadcom controller for an LE scan at a 75% duty cycle (30 ms window every 40 ms, in 0.625 ms
-// units) for a few seconds from START. Meant to stand in for the high-rate scan macOS runs when it looks for nearby
-// devices; the three runs measured so far lost no audio with it, so it may not load the link the way that scan does
-- (void)setForcedScan:(BOOL)on {
-    id controller = BroadcomController(@selector(BroadcomHCILESetScanEnableEnhanced:scanType:filterDuplicates:bypassFilterDuplicateControl:targetCore:scanPeriod:scanDuration:));
-    if (!controller) {
-        if (on) BBLog(@"Forced scan (test harness): not available with this Mac's Bluetooth controller");
-        return;
-    }
-    int result = [controller BroadcomHCILESetScanEnableEnhanced:on scanType:1 filterDuplicates:0 bypassFilterDuplicateControl:0 targetCore:0 scanPeriod:64 scanDuration:48];
-    if (on) BBLog(@"Forced scan on for %.0f s (test harness): 30 ms every 40 ms, result %d", [BBExperiments shared].forceScanSeconds, result);
-    else BBLog(@"Forced scan off (test harness): result %d", result);
-}
-
-- (void)startForcedScanIfRequested {
-    double seconds = [BBExperiments shared].forceScanSeconds;
-    if (seconds <= 0 || _forcedScanActive) return;
-    _forcedScanActive = YES;
-    [self setForcedScan:YES];
-    __weak typeof(self) weakSelf = self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [weakSelf stopForcedScan];
-    });
-}
-
-- (void)stopForcedScan {
-    if (!_forcedScanActive) return;
-    _forcedScanActive = NO;
-    [self setForcedScan:NO];
+- (CodecOptions *)encoderOptions {
+    CodecOptions *options = [_options copy];
+    options.deviceAddress = _address;
+    return options;
 }
 
 - (void)beginStreaming {
@@ -1842,8 +1809,17 @@ static const double kQuietPollInterval = 0.02;
                                _configuration.sampleRate / 1000]];
             return;
         }
+        _wifi24GHz = A2DPWiFiOn24GHz();
+        _lastWiFiCheckTicks = mach_absolute_time();
+        _encoderMTU = [_codec effectiveMTUForOutMTU:_media.outMTU prefer2DH5:_wifi24GHz];
+        NSString *wifiSummary = A2DPWiFiSummary();
+        if (_encoderMTU < _media.outMTU) {
+            BBLog(@"Wi-Fi is on %@: capping effective media MTU %u → %u (single 2-DH5 slot)", wifiSummary, _media.outMTU, _encoderMTU);
+        } else {
+            BBLog(@"Wi-Fi: %@; effective media MTU %u (channel MTU %u)", wifiSummary, _encoderMTU, _media.outMTU);
+        }
         NSString *error = nil;
-        id<A2DPEncoder> encoder = [_codec encoderForConfiguration:_configuration outMTU:_media.outMTU options:_options error:&error];
+        id<A2DPEncoder> encoder = [_codec encoderForConfiguration:_configuration outMTU:_encoderMTU options:[self encoderOptions] error:&error];
         if (!encoder) {
             BBLog(@"%@ encoder creation failed: %@", _codec.displayName, error);
             _failedCodecs[_codec.identifier] = @(CodecFallbackEncoderUnavailable);
@@ -1855,21 +1831,27 @@ static const double kQuietPollInterval = 0.02;
         _streamer.failureHandler = ^(NSString *reason) { [weakSelf encoderFailed:reason]; };
         _streamer.stallHandler = ^(double maxKbps) { [weakSelf mediaStalled:maxKbps]; };
         _streamer.finishedHandler = ^{ [weakSelf stopWithReason:@"Audio playback finished" exitCode:0]; };
+    } else {
+        // Recheck Wi-Fi band on resume from idle suspend in case it switched while suspended
+        BOOL wifi24 = A2DPWiFiOn24GHz();
+        _lastWiFiCheckTicks = mach_absolute_time();
+        if (wifi24 != _wifi24GHz) {
+            _wifi24GHz = wifi24;
+            [self applyEffectiveMTUIfNeeded];
+        }
     }
     BBLog(@"START accepted, streaming %@", _configuration.summary);
-    BOOL resumed = _idleSuspended;
+    BOOL resumed = _idleSuspended || _remoteSuspended;
     double suspended = resumed ? BBTicksToSeconds(mach_absolute_time() - _suspendedTicks) : 0;
     _idleSuspended = NO;
-    _keepWarmLogged = NO;
+    _remoteSuspended = NO;
+    _remoteSuspendSawSilence = NO;
     _streamingSinceTicks = mach_absolute_time();
     if (resumed) BBLog(@"Resumed after %.0f s suspended", suspended);
     [self reportStatus:LinkStatusStreaming];
     // Start from the newest sound: a backlog sent at once overfills the headphones before they play (see dropBacklog)
     if (_systemAudio) [_systemAudio dropBacklog];
     [_streamer start];
-    [self applyHighPriority:YES];
-    [self startForcedScanIfRequested];
-    _priorityWanted = [BBExperiments shared].highPriority;
     if (_systemAudio && !_idleTimer) {
         __weak typeof(self) weakSelf = self;
         _idleTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
@@ -1910,6 +1892,9 @@ static const double kQuietPollInterval = 0.02;
 // such a high bitrate
 - (void)mediaStalled:(double)maxKbps {
     if (_stopping) return;
+    BBLog(@"Media channel stall snapshot: %@ (target %.0f kbps, recent %.1f kbps, effective MTU %u/%u), Wi-Fi: %@",
+        _codec.displayName ?: @"?", _streamer.encoder.bitrateKbps, _streamer.recentKbps, _encoderMTU, _media.outMTU,
+        A2DPWiFiSummary());
     if (maxKbps > 0 && _codec) {
         CodecOptions *options = [_options copy];
         NSMutableDictionary *limits = [options.maxKbps mutableCopy];
@@ -1947,7 +1932,8 @@ static const double kQuietPollInterval = 0.02;
     }
     _configuration = nil;
     uint8_t request = (uint8_t)(_chosen.seid << 2);
-    [self sendCommand:kSigAbort payload:&request length:1 reply:^(uint8_t messageType, const uint8_t *payload, size_t length) {
+    [self sendCommand:kSigAbort payload:&request length:1 timeout:kStallAbortTimeout exitCode:SourceExitStallRecovery reply:^(uint8_t messageType, const uint8_t *payload, size_t length) {
+        BBLog(@"Media channel stall recovery: ABORT %@, reconfiguring in 0.5 s", MessageTypeName(messageType));
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 500 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
             self->_commandInFlight = NO;
             if (self->_stopping) return;
@@ -1978,11 +1964,15 @@ static const double kQuietPollInterval = 0.02;
     double quiet = _systemAudio.secondsSinceSound;
     BBExperiments *experiments = [BBExperiments shared];
     uint64_t now = mach_absolute_time();
-    // Experiment: follow the high-priority switch while streaming, so on and off can be compared on the same stream
-    BOOL wantPriority = experiments.highPriority;
-    if (wantPriority != _priorityWanted) {
-        _priorityWanted = wantPriority;
-        [self applyHighPriority:wantPriority];
+
+    if (_state == SourceStateStreaming && _streamer && _media && _codec && _configuration &&
+        BBTicksToSeconds(now - _lastWiFiCheckTicks) >= kWiFiCheckInterval) {
+        _lastWiFiCheckTicks = now;
+        BOOL wifi24 = A2DPWiFiOn24GHz();
+        if (wifi24 != _wifi24GHz) {
+            _wifi24GHz = wifi24;
+            [self applyEffectiveMTUIfNeeded];
+        }
     }
 
     // Test harness: suspend and resume after fixed times, without depending on the audio source going silent
@@ -2004,25 +1994,15 @@ static const double kQuietPollInterval = 0.02;
 
     // Playback status reported to the headphones: streaming and sound within the last 1 s
     _avrcp.playing = _state == SourceStateStreaming && quiet < 1;
-    if (_state == SourceStateMediaReady && _idleSuspended) [_systemAudio keepRecentOnly];
+    if (_state == SourceStateMediaReady && (_idleSuspended || _remoteSuspended)) [_systemAudio keepRecentOnly];
+    if (_state == SourceStateMediaReady && _remoteSuspended && quiet > 1.0) _remoteSuspendSawSilence = YES;
     if (!testMode && !_testFinished) {
-        if (_state == SourceStateStreaming && quiet > kIdleSuspendSeconds && experiments.keepWarm) {
-            if (!_keepWarmLogged) {
-                _keepWarmLogged = YES;
-                BBLog(@"Keep warm (experiment): silent for %.0f s, not suspending the stream", quiet);
-            }
-        } else if (_state == SourceStateStreaming && quiet > kIdleSuspendSeconds) {
+        if (_state == SourceStateStreaming && quiet > kIdleSuspendSeconds) {
             [self suspendStreamWithReason:[NSString stringWithFormat:@"Silent for %.0f s", kIdleSuspendSeconds]];
-        } else if (_state == SourceStateMediaReady && _idleSuspended && quiet < 0.5 &&
-                   BBTicksToSeconds(now - _suspendedTicks) > 1) {
+        } else if (_state == SourceStateMediaReady && (_idleSuspended || (_remoteSuspended && _remoteSuspendSawSilence)) &&
+                   quiet < 0.5 && BBTicksToSeconds(now - _suspendedTicks) > 1) {
             [self resumeStreamFromSuspend];
         }
-    }
-    if (experiments.avrcpKeepalive && _state == SourceStateMediaReady && _idleSuspended &&
-        BBTicksToSeconds(now - _lastKeepaliveTicks) >= experiments.avrcpKeepaliveSeconds) {
-        _lastKeepaliveTicks = now;
-        [_avrcp sendKeepalive];
-        BBLog(@"AVRCP keepalive (experiment): sent after %.0f s suspended", BBTicksToSeconds(now - _suspendedTicks));
     }
 }
 
@@ -2033,51 +2013,20 @@ static const double kQuietPollInterval = 0.02;
     [self sendCommand:kSigSuspend payload:&request length:1 reply:^(uint8_t messageType, const uint8_t *payload, size_t length) {
         self->_commandInFlight = NO;
         if (messageType != kMsgAccept || self->_state != SourceStateStreaming) return;
-        [self applyHighPriority:NO];
-        [self stopForcedScan];
         [self->_streamer pause];
         self->_state = SourceStateMediaReady;
         self->_idleSuspended = YES;
         self->_suspendedTicks = mach_absolute_time();
-        self->_lastKeepaliveTicks = self->_suspendedTicks;
-        self->_keepWarmLogged = NO;
         [self reportStatus:LinkStatusIdle];
         BBLog(@"%@, suspending the stream (SUSPEND); resumes automatically when there is sound", reason);
     }];
 }
 
 - (void)resumeStreamFromSuspend {
-    double suspended = BBTicksToSeconds(mach_absolute_time() - _suspendedTicks);
-    BBExperiments *experiments = [BBExperiments shared];
-    if (experiments.logLinkState) BBLog(@"Resuming after %.0f s suspended, experiments: %@", suspended, experiments.summary);
-    if (experiments.forceNewLink && suspended >= experiments.forceNewLinkAfterSeconds) {
-        _commandInFlight = YES;
-        BBLog(@"Force new link (experiment): sound is back after %.0f s suspended, disconnecting to start a new session", suspended);
-        [_raceSessions[0] cancelConnection:_uuid];
-        [self stopWithReason:@"Starting a new session after a long pause (experiment)" exitCode:SourceExitForceNewLink];
-        return;
-    }
-    if (experiments.lightWake) {
-        _commandInFlight = YES;
-        BBLog(@"Light wake (experiment): sound is back after %.0f s suspended, sending an AVRCP request before START", suspended);
-        [_avrcp sendKeepalive];
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-            if (self->_stopping || self->_state != SourceStateMediaReady || !self->_idleSuspended) {
-                self->_commandInFlight = NO;
-                return;
-            }
-            self->_commandInFlight = NO;
-            [self sendResumeStart];
-        });
-    } else {
-        [self sendResumeStart];
-    }
-}
-
-- (void)sendResumeStart {
     if (_commandInFlight) return;
     _commandInFlight = YES;
-    BBLog(@"Sound detected, resuming the stream after %.0f s suspended", BBTicksToSeconds(mach_absolute_time() - _suspendedTicks));
+    double suspended = BBTicksToSeconds(mach_absolute_time() - _suspendedTicks);
+    BBLog(@"Sound detected, resuming the stream after %.0f s suspended (experiments: %@)", suspended, [BBExperiments shared].summary);
     uint8_t request = (uint8_t)(_chosen.seid << 2);
     [self sendCommand:kSigStart payload:&request length:1 reply:^(uint8_t messageType, const uint8_t *payload, size_t length) {
         self->_commandInFlight = NO;
@@ -2124,6 +2073,38 @@ static const double kQuietPollInterval = 0.02;
     _pendingReconfigure = YES;
 }
 
+- (void)applyEffectiveMTUIfNeeded {
+    if (!_streamer || !_media || !_codec || !_configuration) return;
+    uint16_t targetMTU = [_codec effectiveMTUForOutMTU:_media.outMTU prefer2DH5:_wifi24GHz];
+    if (targetMTU == _encoderMTU) {
+        BBLog(@"Wi-Fi band changed (%@); effective media MTU stays %u for %@", A2DPWiFiSummary(), _encoderMTU, _codec.displayName);
+        return;
+    }
+    NSString *reason = _wifi24GHz ? @"Wi-Fi switched to 2.4 GHz (capping to single 2-DH5 slot)"
+                                  : @"Wi-Fi left 2.4 GHz (restoring full media MTU)";
+    if ([_streamer applyOutMTU:targetMTU]) {
+        BBLog(@"%@: effective media MTU %u → %u (applied in place by the encoder)", reason, _encoderMTU, targetMTU);
+        _encoderMTU = targetMTU;
+        return;
+    }
+    A2DPCodec *codec = _codec;
+    CodecConfiguration *configuration = _configuration;
+    CodecOptions *options = [self encoderOptions];
+    __block NSString *error = nil;
+    BOOL replaced = [_streamer replaceEncoderWith:^id<A2DPEncoder> {
+        NSString *message = nil;
+        id<A2DPEncoder> encoder = [codec encoderForConfiguration:configuration outMTU:targetMTU options:options error:&message];
+        error = message;
+        return encoder;
+    }];
+    if (replaced) {
+        BBLog(@"%@: effective media MTU %u → %u (encoder swapped in place)", reason, _encoderMTU, targetMTU);
+        _encoderMTU = targetMTU;
+    } else {
+        BBLog(@"%@: failed to adjust encoder MTU to %u (%@)", reason, targetMTU, error ?: @"unknown error");
+    }
+}
+
 - (BOOL)swapEncoderFor:(CodecConfiguration *)configuration reason:(NSString *)reason {
     if (!_streamer) {
         // Not streaming yet: the encoder is built from the new configuration when streaming starts
@@ -2137,8 +2118,8 @@ static const double kQuietPollInterval = 0.02;
         return YES;
     }
     A2DPCodec *codec = _codec;
-    uint16_t mtu = _media.outMTU;
-    CodecOptions *options = _options;
+    uint16_t mtu = [_codec effectiveMTUForOutMTU:_media.outMTU prefer2DH5:_wifi24GHz];
+    CodecOptions *options = [self encoderOptions];
     __block NSString *error = nil;
     BOOL replaced = [_streamer replaceEncoderWith:^id<A2DPEncoder> {
         NSString *message = nil;
@@ -2150,6 +2131,7 @@ static const double kQuietPollInterval = 0.02;
         BBLog(@"%@: creating the encoder with the new parameters failed (%@), closing the stream and reconfiguring instead", reason, error);
         return NO;
     }
+    _encoderMTU = mtu;
     _configuration = configuration;
     BBLog(@"%@: switching to %@ while streaming (encoder swapped only, no renegotiation)", reason, configuration.summary);
     return YES;
@@ -2242,8 +2224,7 @@ static const double kQuietPollInterval = 0.02;
     if (_stopping) return;
     _stopping = YES;
     _exitCode = exitCode;
-    BOOL normal = exitCode == 0 || exitCode == 130 || exitCode == SourceExitHandedToSystem || exitCode == SourceExitRetryNow ||
-                  exitCode == SourceExitForceNewLink;
+    BOOL normal = exitCode == 0 || exitCode == 130 || exitCode == SourceExitHandedToSystem || exitCode == SourceExitRetryNow;
     BBLog(@"%@: %@", normal ? @"Ended" : @"Failed", reason);
     if (_raceTimer) {
         dispatch_source_cancel(_raceTimer);
@@ -2253,8 +2234,6 @@ static const double kQuietPollInterval = 0.02;
         dispatch_source_cancel(_idleTimer);
         _idleTimer = nil;
     }
-    [self applyHighPriority:NO];
-    [self stopForcedScan];
     [_streamer pause];
     [_streamer logTotals];
     [_systemAudio stop];
@@ -2289,10 +2268,10 @@ static const double kQuietPollInterval = 0.02;
         [self resetAvrcp];
         if (_media) [_mediaSession closeChannel:_uuid psm:kAVDTPPSM];
         if (_signalSession) [_signalSession closeChannel:_uuid psm:kAVDTPPSM];
-        if ((!_wasConnected || _handToSystem) && !_endedByPeer && _raceSessions.count) {
+        if ((!_wasConnected || _handToSystem || _exitCode == SourceExitStallRecovery) && !_endedByPeer && _raceSessions.count) {
             // A forced disconnect also drops all of macOS's services on this device; do it only when we initiated the
-            // connection, or when handing the headphones back to macOS. Not when the headphones ended the session themselves
-            // (powering off, switching to another device): the link is theirs to keep or drop
+            // connection, when handing the headphones back to macOS, or when recovering from a deadlocked media stall.
+            // Not when the headphones ended the session themselves (powering off, switching to another device): the link is theirs to keep or drop
             [_raceSessions[0] cancelConnection:_uuid];
             BBLog(@"Requested baseband disconnect");
         }

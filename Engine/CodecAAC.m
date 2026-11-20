@@ -22,23 +22,27 @@ static const size_t kAACInfoOffset = 2;  // Start of the 6-byte codec informatio
     size_t _maxPayload;
     int _limit;                     // Bitrate cap allowed by the media channel MTU
     BOOL _vbr;
+    int _configBitrate;             // Bitrate requested by the configuration (before MTU capping)
     int _bitrate;                   // Set bitrate (not above _limit)
     uint16_t _sequence;
     uint32_t _timestamp;
     uint64_t _fragmented;
     NSUInteger _depth;
     NSArray<NSNumber *> *_ladder;   // Adaptive tier bitrates (bit/s), high to low
+    NSString *_guardKey;
     BitrateAdapter *_adapter;       // Only present when adaptive
 }
 
-- (instancetype)initWithEncoder:(AACEncoder *)encoder bitrate:(int)bitrate limit:(int)limit vbr:(BOOL)vbr adaptive:(BOOL)adaptive
-                         outMTU:(uint16_t)outMTU {
+- (instancetype)initWithEncoder:(AACEncoder *)encoder configBitrate:(int)configBitrate bitrate:(int)bitrate limit:(int)limit vbr:(BOOL)vbr
+                       adaptive:(BOOL)adaptive outMTU:(uint16_t)outMTU guardKey:(NSString *)guardKey {
     if ((self = [super init])) {
         _encoder = encoder;
         _maxPayload = outMTU - kRTPHeaderBytes;
         _limit = limit;
         _vbr = vbr;
+        _configBitrate = configBitrate;
         _bitrate = bitrate;
+        _guardKey = [guardKey copy];
         [self setAdaptive:adaptive];
     }
     return self;
@@ -59,7 +63,7 @@ static const size_t kAACInfoOffset = 2;  // Start of the 6-byte codec informatio
         [kbps addObject:@(step.intValue / 1000)];
     }
     _ladder = ladder;
-    _adapter = [[BitrateAdapter alloc] initWithName:@"AAC" tierKbps:kbps startTier:0 key:CodecIDAAC];
+    _adapter = [[BitrateAdapter alloc] initWithName:@"AAC" tierKbps:kbps startTier:0 key:_guardKey];
     [self applyTier];
 }
 
@@ -80,13 +84,30 @@ static const size_t kAACInfoOffset = 2;  // Start of the 6-byte codec informatio
 - (BOOL)applyConfiguration:(CodecConfiguration *)configuration {
     NSDictionary *p = configuration.parameters;
     if (![configuration.codec isEqualToString:CodecIDAAC] || [p[@"vbr"] boolValue] != _vbr) return NO;
-    int bitrate = MIN([p[@"bitrate"] intValue], _limit);
+    _configBitrate = [p[@"bitrate"] intValue];
+    int bitrate = MIN(_configBitrate, _limit);
     if (bitrate != _bitrate) {
         if (![_encoder setBitrate:bitrate error:nil]) return NO;
         _bitrate = bitrate;
         _adapter = nil;  // Rebuild the tiers from the new bitrate
     }
     [self setAdaptive:[p[@"adaptive"] boolValue]];
+    return YES;
+}
+
+- (BOOL)applyOutMTU:(uint16_t)outMTU {
+    if (outMTU <= kRTPHeaderBytes) return NO;
+    int limit = AACMaxBitrateForMTU(outMTU, _encoder.sampleRate);
+    int bitrate = MIN(_configBitrate, limit);
+    if (bitrate != _bitrate) {
+        if (![_encoder setBitrate:bitrate error:nil]) return NO;
+        _bitrate = bitrate;
+        BOOL adaptive = _adapter != nil;
+        _adapter = nil;
+        [self setAdaptive:adaptive];
+    }
+    _limit = limit;
+    _maxPayload = outMTU - kRTPHeaderBytes;
     return YES;
 }
 
@@ -184,7 +205,8 @@ static const size_t kAACInfoOffset = 2;  // Start of the 6-byte codec informatio
 
 - (id<A2DPEncoder>)encoderForConfiguration:(CodecConfiguration *)configuration outMTU:(uint16_t)outMTU options:(CodecOptions *)options error:(NSString **)error {
     BOOL vbr = [configuration.parameters[@"vbr"] boolValue];
-    int bitrate = [configuration.parameters[@"bitrate"] intValue];
+    int configBitrate = [configuration.parameters[@"bitrate"] intValue];
+    int bitrate = configBitrate;
     // One AU per packet: bitrate not above the cap allowed by the MTU (AOSP A2DP_ComputeMaxBitRateAac)
     int limit = AACMaxBitrateForMTU(outMTU, configuration.sampleRate);
     if (bitrate > limit) {
@@ -195,8 +217,9 @@ static const size_t kAACInfoOffset = 2;  // Start of the 6-byte codec informatio
     if (!encoder) return nil;
     BBLog(@"AAC stream parameters: %@ %d kbps, 1024 samples per packet (%.2f ms)%@", vbr ? @"VBR peak" : @"CBR", encoder.bitrate / 1000,
         1024000.0 / configuration.sampleRate, vbr ? [NSString stringWithFormat:@", per-frame cap %zu bytes", encoder.maxElementBytes] : @"");
-    return [[AACPacketizer alloc] initWithEncoder:encoder bitrate:bitrate limit:limit vbr:vbr adaptive:[configuration.parameters[@"adaptive"] boolValue]
-                                           outMTU:outMTU];
+    return [[AACPacketizer alloc] initWithEncoder:encoder configBitrate:configBitrate bitrate:bitrate limit:limit vbr:vbr
+                                         adaptive:[configuration.parameters[@"adaptive"] boolValue] outMTU:outMTU
+                                         guardKey:A2DPGuardKey(self.identifier, options)];
 }
 
 @end

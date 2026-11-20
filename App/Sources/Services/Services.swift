@@ -116,27 +116,47 @@ enum DriverManager {
         end installdriver
         """#
 
-    // For uninstall: delete the installed driver and restart coreaudiod (needs the administrator password); does nothing when not installed
+    // For uninstall: delete the installed driver (restarting coreaudiod) and, if present, stop and remove the AWDL helper in one admin prompt
     static func uninstall() -> String? {
-        guard FileManager.default.fileExists(atPath: installedPath) else { return nil }
-        if let error = callAppleScriptHandler("uninstalldriver", in: uninstallScript, arguments: [installedPath]) {
+        let hasDriver = FileManager.default.fileExists(atPath: installedPath)
+        let hasHelper = AwdlHelperManager.isInstalledOnDisk || FileManager.default.fileExists(atPath: AwdlHelperManager.socketPath)
+        guard hasDriver || hasHelper else { return nil }
+        let args = [
+            hasDriver ? installedPath : "",
+            hasHelper ? AwdlHelperManager.label : "",
+            hasHelper ? AwdlHelperManager.plistPath : "",
+            hasHelper ? AwdlHelperManager.installedPath : "",
+            hasHelper ? AwdlHelperManager.socketPath : "",
+        ]
+        if let error = callAppleScriptHandler("uninstallall", in: uninstallScript, arguments: args) {
             let message = error[NSAppleScript.errorMessage] as? String ?? "\(error)"
-            BBLogMessage("Virtual device removal did not complete: \(message)")
+            BBLogMessage("System component removal did not complete: \(message)")
             return message
         }
-        BBLogMessage("Virtual device removed")
+        if hasDriver { BBLogMessage("Virtual device removed") }
+        if hasHelper { BBLogMessage("AWDL helper removed") }
         return nil
     }
 
     private static let uninstallScript = #"""
-        on uninstalldriver(installedPath)
-            do shell script "/bin/rm -rf " & (quoted form of installedPath) & " && { /usr/bin/killall coreaudiod 2>/dev/null || true; }" with administrator privileges
-        end uninstalldriver
+        on uninstallall(driverPath, daemonLabel, plistPath, helperPath, socketPath)
+            set cmd to "set -e" & linefeed
+            if daemonLabel is not "" then
+                set cmd to cmd & "{ /bin/launchctl bootout system/" & (quoted form of daemonLabel) & " 2>/dev/null || true; }" & linefeed
+                set cmd to cmd & "{ /sbin/ifconfig awdl0 up 2>/dev/null || true; }" & linefeed
+                set cmd to cmd & "/bin/rm -f " & (quoted form of plistPath) & " " & (quoted form of helperPath) & " " & (quoted form of socketPath) & linefeed
+            end if
+            if driverPath is not "" then
+                set cmd to cmd & "/bin/rm -rf " & (quoted form of driverPath) & linefeed
+                set cmd to cmd & "{ /usr/bin/killall coreaudiod 2>/dev/null || true; }"
+            end if
+            do shell script cmd with administrator privileges
+        end uninstallall
         """#
 
     // Calls an AppleScript handler, passing the arguments in an Apple event. Four-char codes from OpenScripting's ASRegistry.h:
     // kASAppleScriptSuite = 'ascr', kASSubroutineEvent = 'psbr', keyASSubroutineName = 'snam'; the handler name must be all lowercase
-    private static func callAppleScriptHandler(_ name: String, in source: String, arguments: [String]) -> NSDictionary? {
+    static func callAppleScriptHandler(_ name: String, in source: String, arguments: [String]) -> NSDictionary? {
         guard let script = NSAppleScript(source: source) else { return [NSAppleScript.errorMessage: "Invalid AppleScript"] as NSDictionary }
         let event = NSAppleEventDescriptor(eventClass: fourCharCode("ascr"), eventID: fourCharCode("psbr"), targetDescriptor: nil,
                                            returnID: AEReturnID(kAutoGenerateReturnID), transactionID: AETransactionID(kAnyTransactionID))

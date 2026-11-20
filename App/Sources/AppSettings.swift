@@ -22,6 +22,7 @@ enum SettingsKey {
     static let language = "Language"
     static let acceptedNotice = "AcceptedNotice"
     static let untestedSystemAllowed = "UntestedSystemAllowed"
+    static let pauseAWDLWhileStreaming = "PauseAWDLWhileStreaming"
 }
 
 // Sample rate: follow Apple Music's current track, the highest the codec supports, or a fixed value
@@ -79,6 +80,8 @@ final class AppSettings {
     var acceptedNotice: Int { didSet { defaults.set(acceptedNotice, forKey: SettingsKey.acceptedNotice) } }
     // macOS major version on which the user agreed to try an untested system (Compatibility); 0 means never agreed
     var untestedSystemAllowed: Int { didSet { defaults.set(untestedSystemAllowed, forKey: SettingsKey.untestedSystemAllowed) } }
+    // Temporarily keep awdl0 down while streaming via the optional privileged helper to prevent 2.4 GHz AWDL discovery stalls
+    var pauseAWDLWhileStreaming: Bool { didSet { defaults.set(pauseAWDLWhileStreaming, forKey: SettingsKey.pauseAWDLWhileStreaming) } }
     // UI language: "" follows the system, otherwise a language code; written to this app's AppleLanguages, takes effect after relaunch
     var language: String {
         didSet {
@@ -125,6 +128,7 @@ final class AppSettings {
         menuBarStyle = MenuBarStyle(rawValue: defaults.string(forKey: SettingsKey.menuBarStyle) ?? "") ?? .icon
         acceptedNotice = defaults.integer(forKey: SettingsKey.acceptedNotice)
         untestedSystemAllowed = defaults.integer(forKey: SettingsKey.untestedSystemAllowed)
+        pauseAWDLWhileStreaming = defaults.bool(forKey: SettingsKey.pauseAWDLWhileStreaming)
         language = defaults.string(forKey: SettingsKey.language) ?? ""
     }
 

@@ -227,5 +227,16 @@
   "Can drop out when the link is busy; Adaptive is steadier": "Puede cortarse si el enlace está saturado; el modo adaptativo es más estable",
   "The sound dropped out: the Bluetooth link was busy": "El sonido se cortó: el enlace Bluetooth estaba saturado",
   "A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards.": "Una tasa de bits fija no puede bajar cuando macOS usa la misma radio, por ejemplo cuando busca dispositivos cercanos al volver al Mac tras una pausa, o cuando se abre el menú Sonido o el Centro de control. El modo adaptativo baja la tasa de bits mientras tanto y la vuelve a subir después.",
-  "Use Adaptive": "Usar adaptativo"
+  "Use Adaptive": "Usar adaptativo",
+  "Wi-Fi is on 2.4 GHz — switch to 5 GHz for best stability": "Wi-Fi en 2,4 GHz: cambia a 5 GHz para mayor estabilidad",
+  "2.4 GHz Wi-Fi shares the same radio band as Bluetooth. Blue Bloom automatically limits packet size to a single slot to reduce interference, which can cap the top bitrate; switching Wi-Fi to 5 GHz or 6 GHz gives Bluetooth the full band.": "El Wi-Fi de 2,4 GHz comparte la misma banda de radio que Bluetooth. Blue Bloom limita automáticamente el tamaño de paquete a una sola ranura para reducir interferencias, lo que puede limitar la tasa de bits máxima; cambiar el Wi-Fi a 5 GHz o 6 GHz deja la banda libre para Bluetooth.",
+  "Wi-Fi Interference": "Interferencia de Wi-Fi",
+  "Pause AirDrop and AirPlay while streaming": "Pausar AirDrop y AirPlay al transmitir",
+  "Temporarily disables AWDL during playback to prevent dropouts on Macs with shared Wi-Fi and Bluetooth radios. Needs an administrator password once to install a helper.": "Desactiva AWDL temporalmente durante la reproducción para evitar cortes en Mac que comparten radio Wi-Fi y Bluetooth. Requiere contraseña de administrador una vez para instalar un auxiliar.",
+  "AWDL helper": "Auxiliar AWDL",
+  "Update…": "Actualizar…",
+  "Remove Helper…": "Eliminar auxiliar…",
+  "Couldn't update the AWDL helper": "No se pudo actualizar el auxiliar AWDL",
+  "The AWDL helper was installed, but didn't start responding. The log has the details.": "El auxiliar AWDL se instaló, pero no empezó a responder. Consulta los detalles en el registro.",
+  "The AWDL helper failed its signature check. The app may be damaged or modified — download Blue Bloom again from a trusted source.": "El auxiliar AWDL no superó la comprobación de firma. La app puede estar dañada o modificada; descarga Blue Bloom de nuevo desde una fuente fiable."
 }

@@ -133,18 +133,9 @@ static void PrintUsage(void) {
            "  --fixed-rate                                    SBC and AAC do not lower the bitrate automatically with the link\n"
            "  --max-rate sample-rate                          Maximum sample rate\n"
            "Experiments, off by default and none shown to prevent dropouts. A flag stays on for later runs of this tool:\n"
-           "  --keep-warm                                     Keep sending silence instead of suspending the stream\n"
-           "  --avrcp-keepalive                               Send an AVRCP request at intervals while suspended\n"
-           "  --avrcp-keepalive-seconds n                     That interval (default 60)\n"
-           "  --light-wake                                    Send an AVRCP request 0.3 s before START when resuming\n"
-           "  --force-new-link                                Resume from a long pause with a new session\n"
-           "  --force-new-link-after n                        How long a pause counts as long, in seconds (default 600)\n"
-           "  --slow-abr                                      Adaptive bitrate waits longer before trying a higher tier\n"
-           "  --high-priority                                 Ask the Bluetooth controller for a high-priority link while streaming\n"
-           "  --log-link-state                                Extra log lines around resume\n"
+           "  --slow-abr                                      Always use slow adaptive bitrate recovery (automatic on 2.4 GHz Wi-Fi)\n"
            "  --test-suspend-after n                          Test harness: suspend n s after START, once (0 = off)\n"
            "  --test-resume-after n                           Test harness: resume n s after that suspend (default 20)\n"
-           "  --force-scan n                                  Test harness: force a high-rate LE scan for n s from START (0 = off)\n"
            "  --experiments-reset                             Put every experiment back to its default\n");
     printf("Compiled-in codecs (ID: bitrate tiers):\n");
     for (A2DPCodec *codec in [A2DPCodec allCodecs]) {
@@ -202,19 +193,10 @@ static CodecOptions *OptionsFromArguments(NSArray<NSString *> *arguments) {
 static void ApplyExperimentArguments(NSArray<NSString *> *arguments) {
     if ([arguments containsObject:@"--experiments-reset"]) [BBExperiments resetAll];
     BBExperiments *experiments = [BBExperiments shared];
-    if ([arguments containsObject:@"--keep-warm"]) experiments.keepWarm = YES;
-    if ([arguments containsObject:@"--avrcp-keepalive"]) experiments.avrcpKeepalive = YES;
-    if ([arguments containsObject:@"--light-wake"]) experiments.lightWake = YES;
-    if ([arguments containsObject:@"--force-new-link"]) experiments.forceNewLink = YES;
     if ([arguments containsObject:@"--slow-abr"]) experiments.slowABR = YES;
-    if ([arguments containsObject:@"--high-priority"]) experiments.highPriority = YES;
-    if ([arguments containsObject:@"--log-link-state"]) experiments.logLinkState = YES;
     NSString *value;
-    if ((value = OptionValue(arguments, @"--avrcp-keepalive-seconds"))) experiments.avrcpKeepaliveSeconds = value.doubleValue;
-    if ((value = OptionValue(arguments, @"--force-new-link-after"))) experiments.forceNewLinkAfterSeconds = value.doubleValue;
     if ((value = OptionValue(arguments, @"--test-suspend-after"))) experiments.testSuspendAfterSeconds = value.doubleValue;
     if ((value = OptionValue(arguments, @"--test-resume-after"))) experiments.testResumeAfterSeconds = value.doubleValue;
-    if ((value = OptionValue(arguments, @"--force-scan"))) experiments.forceScanSeconds = value.doubleValue;
     if (experiments.activeCount > 0) BBLog(@"Experiments on: %@", experiments.summary);
 }
 

@@ -227,5 +227,16 @@
   "Can drop out when the link is busy; Adaptive is steadier": "Kann bei ausgelasteter Verbindung aussetzen; „Adaptiv“ ist stabiler",
   "The sound dropped out: the Bluetooth link was busy": "Der Ton ist ausgesetzt: Die Bluetooth-Verbindung war ausgelastet",
   "A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards.": "Eine feste Bitrate kann nicht heruntergehen, wenn macOS dasselbe Funkmodul nutzt, etwa wenn es nach Geräten in der Nähe sucht, sobald du nach einer Pause zum Mac zurückkehrst, oder wenn das Menü „Ton“ oder das Kontrollzentrum geöffnet wird. „Adaptiv“ senkt die Bitrate währenddessen und hebt sie danach wieder an.",
-  "Use Adaptive": "„Adaptiv“ verwenden"
+  "Use Adaptive": "„Adaptiv“ verwenden",
+  "Wi-Fi is on 2.4 GHz — switch to 5 GHz for best stability": "WLAN nutzt 2,4 GHz – für beste Stabilität zu 5 GHz wechseln",
+  "2.4 GHz Wi-Fi shares the same radio band as Bluetooth. Blue Bloom automatically limits packet size to a single slot to reduce interference, which can cap the top bitrate; switching Wi-Fi to 5 GHz or 6 GHz gives Bluetooth the full band.": "2,4-GHz-WLAN teilt sich dasselbe Funkband mit Bluetooth. Blue Bloom begrenzt die Paketgröße automatisch auf einen einzelnen Slot, um Störungen zu verringern, was die maximale Bitrate begrenzen kann; der Wechsel zu 5-GHz- oder 6-GHz-WLAN gibt Bluetooth das gesamte Band frei.",
+  "Wi-Fi Interference": "WLAN-Störungen",
+  "Pause AirDrop and AirPlay while streaming": "AirDrop und AirPlay beim Streaming pausieren",
+  "Temporarily disables AWDL during playback to prevent dropouts on Macs with shared Wi-Fi and Bluetooth radios. Needs an administrator password once to install a helper.": "Deaktiviert AWDL während der Wiedergabe vorübergehend, um Aussetzer auf Macs mit gemeinsam genutztem WLAN- und Bluetooth-Funk zu vermeiden. Benötigt einmalig ein Administratorpasswort zum Installieren eines Hilfsprogramms.",
+  "AWDL helper": "AWDL-Hilfsprogramm",
+  "Update…": "Aktualisieren…",
+  "Remove Helper…": "Hilfsprogramm entfernen…",
+  "Couldn't update the AWDL helper": "AWDL-Hilfsprogramm konnte nicht aktualisiert werden",
+  "The AWDL helper was installed, but didn't start responding. The log has the details.": "Das AWDL-Hilfsprogramm wurde installiert, antwortet aber nicht. Details stehen im Protokoll.",
+  "The AWDL helper failed its signature check. The app may be damaged or modified — download Blue Bloom again from a trusted source.": "Die Signaturprüfung des AWDL-Hilfsprogramms ist fehlgeschlagen. Die App ist möglicherweise beschädigt oder verändert – lade Blue Bloom erneut aus einer vertrauenswürdigen Quelle."
 }

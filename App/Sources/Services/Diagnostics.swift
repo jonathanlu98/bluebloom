@@ -72,6 +72,14 @@ enum Diagnostics {
 
         section("Wi-Fi")
         lines += wirelessState()
+        lines.append("2-DH5 packet cap: \(model.wifiOn24GHz ? "active (2.4 GHz)" : "inactive")")
+        let awdlHelper: String
+        switch model.awdlHelperState {
+        case .current: awdlHelper = "installed (v\(AwdlHelperManager.expectedVersion))"
+        case .outdated: awdlHelper = "outdated"
+        case .missing: awdlHelper = "not installed"
+        }
+        lines.append("AWDL helper: \(awdlHelper), pause while streaming: \(settings.pauseAWDLWhileStreaming), currently paused: \(model.awdlSuppressed)")
 
         section("Headphones")
         let records = model.devices.records.sorted { ($0.value.lastSeen ?? .distantPast) > ($1.value.lastSeen ?? .distantPast) }
@@ -83,7 +91,7 @@ enum Diagnostics {
             if let preferred = record.preferredCodec { state.append("preferred \(preferred.rawValue)") }
             if let seen = record.lastSeen { state.append("last seen \(seen.formatted(.iso8601.year().month().day()))") }
             lines.append("#\(index + 1): \(state.joined(separator: ", "))")
-            if let bluetooth = IOBluetoothDevice(addressString: address) {
+            if !Snapshot.isActive, let bluetooth = IOBluetoothDevice(addressString: address) {
                 lines.append("    \(A2DPDeviceIdentity(bluetooth))")
             }
             for codec in record.codecs {
@@ -167,7 +175,9 @@ enum Diagnostics {
     nonisolated private static let radioActivityPredicate = """
         (process == "sharingd" AND (eventMessage CONTAINS "Activity level changed" OR eventMessage CONTAINS "[Prox] Starting scan")) \
         OR (process == "ControlCenter" AND eventMessage CONTAINS "setDiscoveryMode") \
-        OR (process == "bluetoothd" AND eventMessage BEGINSWITH "Scan start:")
+        OR (process == "bluetoothd" AND eventMessage BEGINSWITH "Scan start:") \
+        OR (process == "airportd" AND ((eventMessage BEGINSWITH "SC: <airport" AND eventMessage CONTAINS "AWDLRealTimeMode") \
+        OR eventMessage CONTAINS "Perform live scan"))
         """
 
     // Writes BlueBloom-Diagnostics-<date>.zip to the Desktop; the work runs off the main thread (System Information and

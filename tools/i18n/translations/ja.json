@@ -227,5 +227,16 @@
   "Can drop out when the link is busy; Adaptive is steadier": "接続が混雑すると途切れることがあります。適応の方が安定します",
   "The sound dropped out: the Bluetooth link was busy": "音が途切れました：Bluetooth の接続が混雑していました",
   "A fixed bitrate has no room to step down when macOS uses the same radio, for example when it scans for nearby devices after you come back to the Mac, or when the Sound menu or Control Center opens. Adaptive lowers the bitrate while that happens and raises it again afterwards.": "固定ビットレートには下げる余地がありません。macOS が同じ無線を使うと途切れます。たとえば、しばらく離れてから Mac に戻ったときの周辺デバイスのスキャンや、サウンドメニューやコントロールセンターを開いたときです。適応ならその間はビットレートを下げ、終わったら元に戻します。",
-  "Use Adaptive": "適応にする"
+  "Use Adaptive": "適応にする",
+  "Wi-Fi is on 2.4 GHz — switch to 5 GHz for best stability": "Wi-Fi が 2.4 GHz です — 安定性のため 5 GHz への切替を推奨",
+  "2.4 GHz Wi-Fi shares the same radio band as Bluetooth. Blue Bloom automatically limits packet size to a single slot to reduce interference, which can cap the top bitrate; switching Wi-Fi to 5 GHz or 6 GHz gives Bluetooth the full band.": "2.4 GHz Wi-Fi は Bluetooth と同じ周波数帯を共有します。干渉を減らすため、Blue Bloom はパケットサイズを単一スロットに自動制限しており、最高ビットレートが抑えられる場合があります。Wi-Fi を 5 GHz または 6 GHz に切り替えると Bluetooth が帯域を最大限に使えます。",
+  "Wi-Fi Interference": "Wi-Fi 干渉",
+  "Pause AirDrop and AirPlay while streaming": "再生中は AirDrop と AirPlay を一時停止",
+  "Temporarily disables AWDL during playback to prevent dropouts on Macs with shared Wi-Fi and Bluetooth radios. Needs an administrator password once to install a helper.": "Wi-Fi と Bluetooth の無線を共有する Mac で音切れを防ぐため、再生中のみ AWDL を一時的に無効にします。初回のみヘルパーのインストールに管理者パスワードが必要です。",
+  "AWDL helper": "AWDL ヘルパー",
+  "Update…": "アップデート…",
+  "Remove Helper…": "ヘルパーを削除…",
+  "Couldn't update the AWDL helper": "AWDL ヘルパーを更新できませんでした",
+  "The AWDL helper was installed, but didn't start responding. The log has the details.": "AWDL ヘルパーはインストールされましたが、応答がありませんでした。詳細はログを確認してください。",
+  "The AWDL helper failed its signature check. The app may be damaged or modified — download Blue Bloom again from a trusted source.": "AWDL ヘルパーの署名検証に失敗しました。アプリが破損または改ざんされている可能性があります。信頼できる配布元から Blue Bloom を再ダウンロードしてください。"
 }

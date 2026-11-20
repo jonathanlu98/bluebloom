@@ -42,6 +42,8 @@ static const double kDepthWarmupSeconds = 1;
     BOOL _failed;
     uint64_t _startTicks;
     uint64_t _framesConsumed;
+    size_t _framesSincePacket;
+    double _framesPerPacket;
     uint64_t _packets;
     uint64_t _bytes;
     uint64_t _droppedFrames;
@@ -53,7 +55,11 @@ static const double kDepthWarmupSeconds = 1;
     uint64_t _encodeCount;
     double _lastStatsTime;
     uint64_t _lastStatsBytes;
+    uint64_t _lastStatsBlocked;
     uint64_t _lastCapturedFrames;
+    double _blockStartTime;
+    double _maxBlockSeconds;
+    double _lastBlockLogTime;
     double _rateSeconds;
     uint64_t _rateFrames;
     double _kbpsTime;
@@ -102,6 +108,10 @@ static const double kDepthWarmupSeconds = 1;
         self->_startTicks = mach_absolute_time() - BBSecondsToTicks((double)self->_framesConsumed / self->_rate);
         self->_lastStatsTime = BBTicksToSeconds(mach_absolute_time() - self->_startTicks);
         self->_lastStatsBytes = self->_bytes;
+        self->_lastStatsBlocked = self->_blockedWrites;
+        self->_blockStartTime = -1;
+        self->_maxBlockSeconds = 0;
+        self->_lastBlockLogTime = -10;
         self->_kbpsTime = self->_lastStatsTime;
         self->_kbpsBytes = self->_bytes;
         self->_lastSendTime = self->_lastStatsTime;
@@ -138,6 +148,8 @@ static const double kDepthWarmupSeconds = 1;
             encoder.rtpTimestamp = previous.rtpTimestamp;
         }
         self->_encoder = encoder;
+        self->_framesSincePacket = 0;
+        self->_framesPerPacket = 0;
         if (encoder.framesPerCall != previous.framesPerCall) {
             self->_pcm = [NSMutableData dataWithLength:encoder.framesPerCall * kPCMBytesPerSample];
         }
@@ -150,6 +162,14 @@ static const double kDepthWarmupSeconds = 1;
     __block BOOL applied = NO;
     dispatch_sync(_queue, ^{
         if ([self->_encoder respondsToSelector:@selector(applyConfiguration:)]) applied = [self->_encoder applyConfiguration:configuration];
+    });
+    return applied;
+}
+
+- (BOOL)applyOutMTU:(uint16_t)outMTU {
+    __block BOOL applied = NO;
+    dispatch_sync(_queue, ^{
+        if ([self->_encoder respondsToSelector:@selector(applyOutMTU:)]) applied = [self->_encoder applyOutMTU:outMTU];
     });
     return applied;
 }
@@ -203,8 +223,7 @@ static const double kDepthWarmupSeconds = 1;
     }
     while (!_failed) {
         if (_pending.count == 0) {
-            BOOL due = _capture ? [_source availableFrames] >= perCall
-                                : (double)(_framesConsumed + perCall) <= [self dueFrames:elapsed];
+            BOOL due = _capture ? [_source availableFrames] >= perCall : (double)(_framesConsumed + perCall) <= [self dueFrames:elapsed];
             if (!due) break;
             if (_sourceEnded) {
                 [self finish];
@@ -216,15 +235,38 @@ static const double kDepthWarmupSeconds = 1;
         NSData *packet = _pending.firstObject;
         if (!SendBufferEmpty(_socket.fd)) {
             _blockedWrites++;
+            if (_blockStartTime < 0) _blockStartTime = elapsed;
+            else _maxBlockSeconds = MAX(_maxBlockSeconds, elapsed - _blockStartTime);
             [self checkStall:elapsed];
             break;
         }
         if (![_socket send:packet]) {
             // Send buffer full: keep this packet for the next write; the encoder state has already advanced, so it must not be dropped
-            if (errno == EAGAIN) _blockedWrites++;
-            else if (++_failedWrites <= 3) BBLog(@"Media packet write failed: errno %d", errno);
+            if (errno == EAGAIN) {
+                _blockedWrites++;
+                if (_blockStartTime < 0) _blockStartTime = elapsed;
+                else _maxBlockSeconds = MAX(_maxBlockSeconds, elapsed - _blockStartTime);
+            } else if (++_failedWrites <= 3) {
+                BBLog(@"Media packet write failed: errno %d", errno);
+            }
             [self checkStall:elapsed];
             break;
+        }
+        if (_blockStartTime >= 0) {
+            double gap = elapsed - _blockStartTime;
+            _maxBlockSeconds = MAX(_maxBlockSeconds, gap);
+            _blockStartTime = -1;
+            // A write gap >= 100 ms after warmup can starve a ~200 ms headphone jitter buffer even when capture does not drop
+            // frames; query Wi-Fi state off the real-time streaming queue
+            if (gap >= 0.1 && elapsed >= _depthWarmupUntil && elapsed - _lastBlockLogTime >= 2.0) {
+                _lastBlockLogTime = elapsed;
+                NSString *label = _label;
+                double gapMs = gap * 1000;
+                double targetKbps = _encoder.bitrateKbps;
+                dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+                    BBLog(@"%@ media channel blocked for %.0f ms (encoder target %.0f kbps, Wi-Fi: %@)", label, gapMs, targetKbps, A2DPWiFiSummary());
+                });
+            }
         }
         _lastSendTime = elapsed;
         _stallReported = NO;
@@ -244,7 +286,8 @@ static const double kDepthWarmupSeconds = 1;
 - (void)checkStall:(double)elapsed {
     if (_stallReported || elapsed - _lastSendTime < kStallSeconds) return;
     _stallReported = YES;
-    BBLog(@"%@ media channel: nothing written for %.0f s, headphones no longer accepting", _label, elapsed - _lastSendTime);
+    BBLog(@"%@ media channel: nothing written for %.1f s, headphones no longer accepting (packets sent %llu)",
+        _label, elapsed - _lastSendTime, _packets);
     double maxKbps = [_encoder respondsToSelector:@selector(mediaStalled)] ? [_encoder mediaStalled] : 0;
     void (^handler)(double) = _stallHandler;
     if (handler) dispatch_async(dispatch_get_main_queue(), ^{ handler(maxKbps); });
@@ -254,17 +297,18 @@ static const double kDepthWarmupSeconds = 1;
 // When streaming cannot keep up we stop encoding first, so the backlog sits in the capture buffer and counting only pending packets would always give 0–1; subtract 12ms of fetch jitter (the virtual device is fetched every 10ms)
 - (NSUInteger)queueDepth {
     NSUInteger depth = _pending.count;
+    // Use the latest packet's sample count rather than the stream-wide average: for codecs whose packet duration varies with
+    // bitrate (LDAC ranges from 256 to 768 samples/packet at 48 kHz), a cumulative average lags behind tier changes by minutes
+    double framesPerPacket = _framesPerPacket > 0 ? _framesPerPacket : (double)_encoder.framesPerCall;
     if (!_capture && _packets > 0) {
         // File playback has no capture backlog, so a link that cannot keep up only shows as the sent audio falling behind the
         // clock: count that lag in packets too, or adaptive bitrate never sees it and never steps down
-        double framesPerPacket = (double)_framesConsumed / (double)(_packets + _pending.count);
         double elapsed = BBTicksToSeconds(mach_absolute_time() - _startTicks);
         double lag = [self dueFrames:elapsed] - (double)_framesConsumed - _rate * 0.012;
         if (lag > 0 && framesPerPacket > 0) depth += (NSUInteger)(lag / framesPerPacket);
         return depth;
     }
     if (!_capture || _packets == 0) return depth;
-    double framesPerPacket = (double)_framesConsumed / (double)(_packets + _pending.count);
     double backlog = (double)[_source availableFrames] - _rate * 0.012;
     if (backlog > 0 && framesPerPacket > 0) depth += (NSUInteger)(backlog / framesPerPacket);
     return depth;
@@ -279,9 +323,10 @@ static const double kDepthWarmupSeconds = 1;
     size_t got = [_source read:pcm frames:perCall];
     if (got < perCall) {
         memset(pcm + got * kPCMBytesPerSample, 0, (perCall - got) * kPCMBytesPerSample);
-        _sourceEnded = YES;
+        if (!_capture) _sourceEnded = YES;
     }
     _framesConsumed += perCall;
+    _framesSincePacket += perCall;
     uint64_t begin = mach_absolute_time();
     NSString *error = nil;
     NSArray<NSData *> *packets = [_encoder encode:pcm error:&error];
@@ -293,7 +338,12 @@ static const double kDepthWarmupSeconds = 1;
     _encodeSeconds += seconds;
     _encodeMax = MAX(_encodeMax, seconds);
     _encodeCount++;
-    if (packets.count == 0) _emptyCalls++;
+    if (packets.count == 0) {
+        _emptyCalls++;
+    } else {
+        _framesPerPacket = (double)_framesSincePacket / (double)packets.count;
+        _framesSincePacket = 0;
+    }
     [_pending addObjectsFromArray:packets];
     return YES;
 }
@@ -315,12 +365,19 @@ static const double kDepthWarmupSeconds = 1;
                        averageRate ? [NSString stringWithFormat:@" (cumulative average %.1f Hz)", averageRate] : @"", capture.droppedFrames, capture.silentReads];
         _lastCapturedFrames = capture.capturedFrames;
     }
-    BBLog(@"%@ streamed %.0f s: %.1f s of audio, %llu packets, recent bitrate %.1f kbps (encoder target %.0f), encode avg %.2f ms, max %.2f ms, no packet out %llu times, buffer full %llu times, dropped %llu samples, write failures %llu%@",
+    uint64_t deltaBlocked = _blockedWrites - _lastStatsBlocked;
+    double maxBlockMs = (_blockStartTime >= 0 ? MAX(_maxBlockSeconds, elapsed - _blockStartTime) : _maxBlockSeconds) * 1000;
+    NSString *blockInfo = deltaBlocked > 0
+        ? [NSString stringWithFormat:@"%llu (+%llu, max %.0f ms)", _blockedWrites, deltaBlocked, maxBlockMs]
+        : [NSString stringWithFormat:@"%llu (+0)", _blockedWrites];
+    BBLog(@"%@ streamed %.0f s: %.1f s of audio, %llu packets, recent bitrate %.1f kbps (encoder target %.0f), encode avg %.2f ms, max %.2f ms, no packet out %llu times, buffer full %@, dropped %llu samples, write failures %llu%@",
         _label, elapsed, _framesConsumed / _rate, _packets, kbps, _encoder.bitrateKbps, _encodeCount ? _encodeSeconds / _encodeCount * 1000 : 0,
-        _encodeMax * 1000, _emptyCalls, _blockedWrites, _droppedFrames, _failedWrites, captureInfo);
+        _encodeMax * 1000, _emptyCalls, blockInfo, _droppedFrames, _failedWrites, captureInfo);
     _lastStatsTime = elapsed;
     _lastStatsBytes = _bytes;
+    _lastStatsBlocked = _blockedWrites;
     _encodeMax = 0;
+    _maxBlockSeconds = 0;
 }
 
 - (void)logTotals {
